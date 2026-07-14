@@ -134,6 +134,10 @@
         display:flex; align-items:center; justify-content:center; font-size:0.8em; color:white;
     }
     .discover-card.selected .discover-check { background:#a855f7; border-color:#a855f7; }
+    .discover-kategori {
+        position:absolute; top:8px; left:8px; background:rgba(0,0,0,0.55); backdrop-filter:blur(4px);
+        border-radius:6px; width:24px; height:24px; display:flex; align-items:center; justify-content:center; font-size:0.8em;
+    }
     .discover-name {
         font-size:0.72em; margin-top:4px; text-align:center; color:#c4b5fd;
         overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
@@ -640,21 +644,27 @@ async function bulutVeriYukle() {
     try {
         const docRef = db.collection('koleksiyonlar').doc(currentUser.uid);
         const docSnap = await docRef.get();
-        if (docSnap.exists) {
-            const bulutVeriHam = docSnap.data().veriler || [];
-            const bulutVeri = Array.isArray(bulutVeriHam) ? bulutVeriHam.filter(verayiDogrula) : [];
-            if (bulutVeri.length === 0 && veriler.length > 0) {
-                await bulutVeriKaydet(); // yereldeki veriyi ilk kez buluta taşı
-            } else {
-                veriler = bulutVeri;
-                try { localStorage.setItem('watchtrack', JSON.stringify(veriler)); } catch(e) {}
-                guncelle();
-                if (!document.getElementById('tabStats').classList.contains('hidden')) renderStats();
-            }
-        } else {
+        const bulutVeriHam = docSnap.exists ? (docSnap.data().veriler || []) : [];
+        const bulutVeri = Array.isArray(bulutVeriHam) ? bulutVeriHam.filter(verayiDogrula) : [];
+
+        // Bulut ve yerel veriyi BİRLEŞTİR — hiçbiri sessizce silinmesin.
+        // Aynı isimde olanlarda buluttaki sürüm esas alınır (daha güncel kabul edilir),
+        // yerelde olup bulutta olmayanlar (örn. hesapsızken eklenenler) korunarak eklenir.
+        const isimKucuk = s => s.trim().toLocaleLowerCase('tr');
+        const bulutIsimleri = new Set(bulutVeri.map(d => isimKucuk(d.isim)));
+        const sadeceYerelOlanlar = veriler.filter(d => !bulutIsimleri.has(isimKucuk(d.isim)));
+        const birlesmis = [...bulutVeri, ...sadeceYerelOlanlar];
+
+        veriler = birlesmis;
+        try { localStorage.setItem('watchtrack', JSON.stringify(veriler)); } catch(e) {}
+        guncelle();
+        if (!document.getElementById('tabStats').classList.contains('hidden')) renderStats();
+
+        // Birleşmiş sonucu buluta da yaz (yerelde olup buluta hiç gitmemiş olanlar buluta işlensin)
+        if (sadeceYerelOlanlar.length > 0 || !docSnap.exists) {
             await bulutVeriKaydet();
         }
-        toast('Bulutla senkronize edildi ☁️');
+        toast('Bulutla senkronize edildi ☁️' + (sadeceYerelOlanlar.length > 0 ? ' (' + sadeceYerelOlanlar.length + ' yerel içerik eklendi)' : ''));
     } catch (e) {
         console.error('Bulut veri yükleme hatası:', e);
         toast('Bulut verisi yüklenemedi, yerel veriler kullanılıyor');
@@ -883,7 +893,8 @@ function manuelEkleKaydet() {
 }
 
 // ---- KEŞİF IZGARASI ----
-const KESIF_LISTESI = [
+// Küçük, güvenilir bir yedek liste (toplu uç noktalar başarısız olursa devreye girer)
+const KESIF_YEDEK_LISTESI = [
     'Reacher','Chicago Fire','Vikings','Shogun','Medici','The Tudors','Marco Polo',
     'The Last Kingdom','Peaky Blinders','The Crown','Rome','Spartacus','Narcos',
     'The Witcher','Money Heist','Dark','Squid Game','Breaking Bad','Better Call Saul',
@@ -901,37 +912,81 @@ async function yukleKesifIzgara() {
     const grid = document.getElementById('discoverGrid');
     if (discoverItems.length === 0) grid.innerHTML = '<div class="loading">Yükleniyor...</div>';
     try {
-        const sonuclar = [];
-        // TVMaze hız limitine takılmamak için istekleri küçük gruplar halinde ve aralıklarla gönder
-        for (let i = 0; i < KESIF_LISTESI.length; i += 4) {
-            const grup = KESIF_LISTESI.slice(i, i + 4);
-            const grupSonuc = await Promise.all(grup.map(async (isim) => {
-                const cacheAnahtari = 'kesif_' + isim.trim().toLocaleLowerCase('tr');
-                const onbellek = apiCacheOku(cacheAnahtari);
-                if (onbellek) return onbellek;
-                try {
-                    const res = await fetch('https://api.tvmaze.com/singlesearch/shows?q=' + encodeURIComponent(isim));
-                    if (!res.ok) return { isim, poster: null };
-                    const data = await res.json();
-                    const sonuc = {
-                        isim: data.name || isim,
-                        poster: data.image ? data.image.medium : null,
-                        rating: data.rating && data.rating.average ? data.rating.average : null,
-                        imdb: data.externals && data.externals.imdb ? data.externals.imdb : null
-                    };
-                    apiCacheYaz(cacheAnahtari, sonuc);
-                    return sonuc;
-                } catch (e) {
-                    return { isim, poster: null };
+        const cacheAnahtari = 'kesif_liste_toplu_v2';
+        let sonuclar = apiCacheOku(cacheAnahtari);
+
+        if (!sonuclar) {
+            sonuclar = [];
+
+            // 1) DİZİLER: TVMaze'in toplu uç noktasından çekip "weight" (popülerlik) değerine göre sırala.
+            // Bu, tek tek isim aramaktan çok daha hızlı ve çok daha fazla çeşit sağlıyor.
+            try {
+                const diziRes = await fetch('https://api.tvmaze.com/shows?page=0');
+                if (diziRes.ok) {
+                    const tumDiziler = await diziRes.json();
+                    const populerDiziler = tumDiziler
+                        .filter(s => s.image && s.image.medium)
+                        .sort((a, b) => (b.weight || 0) - (a.weight || 0))
+                        .slice(0, 36)
+                        .map(s => ({
+                            isim: s.name,
+                            poster: s.image.medium,
+                            rating: s.rating && s.rating.average ? s.rating.average : null,
+                            imdb: s.externals && s.externals.imdb ? s.externals.imdb : null,
+                            kategori: 'Dizi'
+                        }));
+                    sonuclar.push(...populerDiziler);
                 }
-            }));
-            sonuclar.push(...grupSonuc);
-            // Arka planı ilk grup geldiğinde erkenden göstermeye başla
-            const simdikiPosterler = sonuclar.filter(s => s.poster).map(s => s.poster);
-            if (simdikiPosterler.length >= 6) renderPosterBg(simdikiPosterler);
-            if (i + 4 < KESIF_LISTESI.length) await bekle(250);
+            } catch (e) { /* dizi listesi alınamadı, filmlerle devam */ }
+
+            // 2) FİLMLER: TMDB yapılandırıldıysa popüler filmleri de ekle (sadece TMDB anahtarı girildiyse çalışır)
+            if (tmdbHazir) {
+                try {
+                    const filmSayfa1 = await fetch('https://api.themoviedb.org/3/movie/popular?api_key=' + tmdbApiKey + '&language=tr-TR&page=1');
+                    const filmSayfa2 = await fetch('https://api.themoviedb.org/3/movie/popular?api_key=' + tmdbApiKey + '&language=tr-TR&page=2');
+                    const veri1 = filmSayfa1.ok ? await filmSayfa1.json() : { results: [] };
+                    const veri2 = filmSayfa2.ok ? await filmSayfa2.json() : { results: [] };
+                    const filmler = [...(veri1.results || []), ...(veri2.results || [])]
+                        .filter(f => f.poster_path)
+                        .map(f => ({
+                            isim: f.title,
+                            poster: TMDB_IMG + f.poster_path,
+                            rating: f.vote_average ? Math.round(f.vote_average * 10) / 10 : null,
+                            imdb: null,
+                            kategori: 'Film'
+                        }));
+                    sonuclar.push(...filmler);
+                } catch (e) { /* film listesi alınamadı, sorun değil */ }
+            }
+
+            // 3) Toplu uçlar tamamen başarısız olduysa (internet/CORS sorunu), küçük yedek listeye düş
+            if (sonuclar.length === 0) {
+                for (let i = 0; i < KESIF_YEDEK_LISTESI.length; i += 4) {
+                    const grup = KESIF_YEDEK_LISTESI.slice(i, i + 4);
+                    const grupSonuc = await Promise.all(grup.map(async (isim) => {
+                        try {
+                            const res = await fetch('https://api.tvmaze.com/singlesearch/shows?q=' + encodeURIComponent(isim));
+                            if (!res.ok) return null;
+                            const data = await res.json();
+                            if (!data.image) return null;
+                            return { isim: data.name || isim, poster: data.image.medium, rating: data.rating && data.rating.average ? data.rating.average : null, imdb: data.externals && data.externals.imdb ? data.externals.imdb : null, kategori: 'Dizi' };
+                        } catch (e) { return null; }
+                    }));
+                    sonuclar.push(...grupSonuc.filter(Boolean));
+                    if (i + 4 < KESIF_YEDEK_LISTESI.length) await bekle(250);
+                }
+            }
+
+            // Dizi/film karışık, hafif karıştırılmış (her seferinde aynı sırayla gelmesin)
+            for (let i = sonuclar.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [sonuclar[i], sonuclar[j]] = [sonuclar[j], sonuclar[i]];
+            }
+
+            apiCacheYaz(cacheAnahtari, sonuclar);
         }
-        discoverItems = sonuclar.filter(s => s.poster);
+
+        discoverItems = sonuclar;
         renderKesifIzgara();
         renderPosterBg(discoverItems.map(d => d.poster));
         kesifYuklendi = true;
@@ -963,6 +1018,7 @@ function renderKesifIzgara() {
     grid.innerHTML = discoverItems.map((item, idx) => `
         <div class="discover-card ${listedeVarMi(item.isim) ? 'already-added' : ''}" data-idx="${idx}" role="button" tabindex="0" aria-pressed="false">
             <img class="discover-poster" src="${item.poster}" alt="">
+            <span class="discover-kategori">${item.kategori === 'Film' ? '🎬' : '📺'}</span>
             <div class="discover-check">✓</div>
             <div class="discover-name"></div>
         </div>
@@ -1007,7 +1063,7 @@ function secilenleriEkle() {
             id: Date.now() + Math.random(),
             isim: item.isim,
             poster: item.poster || placeholderUrl(item.isim),
-            tur: 'Dizi',
+            tur: item.kategori || 'Dizi',
             durum: 'İzlendi',
             puan: null,
             tarih: new Date().toLocaleDateString('tr-TR')
