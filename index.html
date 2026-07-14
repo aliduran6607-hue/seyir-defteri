@@ -378,13 +378,15 @@
             <p style="color:#a99bd6;font-size:0.85em;margin-bottom:16px;line-height:1.5;">
                 Hesap oluşturursan koleksiyonun tüm cihazlarında senkronize kalır. İstersen hesapsız da devam edebilirsin (veriler sadece bu cihazda kalır).
             </p>
-            <input type="email" id="authEmail" placeholder="E-posta" autocomplete="email">
-            <input type="password" id="authPassword" placeholder="Şifre (en az 6 karakter)" autocomplete="current-password">
-            <div id="authError" style="color:#f87171;font-size:0.8em;margin-bottom:10px;display:none;"></div>
-            <div class="modal-buttons">
-                <button class="btn-cancel" onclick="authModuKapat()">Hesapsız Devam Et</button>
-                <button class="btn-save" id="authSubmitBtn" onclick="girisYap()">Giriş Yap</button>
-            </div>
+            <form id="authForm" onsubmit="event.preventDefault(); girisYap(); return false;" autocomplete="on">
+                <input type="email" id="authEmail" name="email" placeholder="E-posta" autocomplete="email">
+                <input type="password" id="authPassword" name="password" placeholder="Şifre (en az 6 karakter)" autocomplete="current-password">
+                <div id="authError" style="color:#f87171;font-size:0.8em;margin-bottom:10px;display:none;"></div>
+                <div class="modal-buttons">
+                    <button type="button" class="btn-cancel" onclick="authModuKapat()">Hesapsız Devam Et</button>
+                    <button type="submit" class="btn-save" id="authSubmitBtn">Giriş Yap</button>
+                </div>
+            </form>
             <div style="text-align:center;margin-top:14px;font-size:0.82em;color:#a99bd6;">
                 <span id="authToggleText">Hesabın yok mu?</span>
                 <a href="#" onclick="authModTogl(event)" style="color:#c084fc;font-weight:600;text-decoration:none;">
@@ -397,8 +399,8 @@
     <div class="modal-overlay" id="manualModal" role="dialog" aria-modal="true">
         <div class="modal">
             <h3>Manuel Ekle (Film/Anime/Dizi)</h3>
-            <input type="text" id="mIsim" placeholder="Ad">
-            <input type="text" id="mPoster" placeholder="Poster URL (isteğe bağlı)">
+            <input type="text" id="mIsim" placeholder="Ad" autocomplete="off">
+            <input type="text" id="mPoster" placeholder="Poster URL (isteğe bağlı)" autocomplete="off">
             <select id="mTur"><option>Film</option><option>Dizi</option><option>Anime</option></select>
             <div class="modal-buttons">
                 <button class="btn-cancel" onclick="manuelEkleKapat()">İptal</button>
@@ -412,7 +414,7 @@
             <h3>Koleksiyonunu Paylaş</h3>
             <div style="margin-bottom:12px;">
                 <label style="display:block;font-size:0.85em;color:#c084fc;margin-bottom:8px;">Adın (kartın altında görünür)</label>
-                <input type="text" id="shareName" placeholder="örn. Muhammed Ali Duran" style="width:100%;padding:10px;border-radius:8px;background:rgba(71,63,136,0.6);border:1px solid rgba(168,85,247,0.3);color:white;">
+                <input type="text" id="shareName" placeholder="örn. Muhammed Ali Duran" autocomplete="off" style="width:100%;padding:10px;border-radius:8px;background:rgba(71,63,136,0.6);border:1px solid rgba(168,85,247,0.3);color:white;">
             </div>
             <div style="margin-bottom:14px;">
                 <label style="display:block;font-size:0.85em;color:#c084fc;margin-bottom:8px;">Neyi paylaşmak istiyorsun?</label>
@@ -482,7 +484,7 @@
             </div>
             <div style="margin-bottom:12px;">
                 <label style="display:block;font-size:0.85em;color:#c084fc;margin-bottom:8px;">Adın</label>
-                <input type="text" id="recName" placeholder="örn. Muhammed Ali Duran" style="width:100%;padding:10px;border-radius:8px;background:rgba(71,63,136,0.6);border:1px solid rgba(168,85,247,0.3);color:white;">
+                <input type="text" id="recName" placeholder="örn. Muhammed Ali Duran" autocomplete="off" style="width:100%;padding:10px;border-radius:8px;background:rgba(71,63,136,0.6);border:1px solid rgba(168,85,247,0.3);color:white;">
             </div>
             <canvas id="recommendCanvas" style="display:none;"></canvas>
             <img id="recommendPreviewImg" style="width:100%;border-radius:10px;margin-bottom:14px;display:none;border:1px solid rgba(168,85,247,0.3);">
