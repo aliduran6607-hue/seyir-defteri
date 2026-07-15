@@ -388,7 +388,8 @@
                 <div id="puanFiltrePaneli" style="display:none;position:absolute;top:110%;right:0;background:#171233;border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:10px;box-shadow:0 20px 45px rgba(0,0,0,0.5);z-index:40;min-width:200px;">
                     <button class="puan-filtre-opsiyon" data-puan="tumu" onclick="puanFiltreSec('tumu')" style="display:block;width:100%;text-align:left;background:none;border:none;color:#e0e7ff;padding:9px 10px;border-radius:8px;cursor:pointer;font-size:0.85em;">Tümü</button>
                     <button class="puan-filtre-opsiyon" data-puan="yok" onclick="puanFiltreSec('yok')" style="display:block;width:100%;text-align:left;background:none;border:none;color:#e0e7ff;padding:9px 10px;border-radius:8px;cursor:pointer;font-size:0.85em;">Puanlanmamış</button>
-                    <button class="puan-filtre-opsiyon" data-puan="9-10" onclick="puanFiltreSec('9-10')" style="display:block;width:100%;text-align:left;background:none;border:none;color:#e0e7ff;padding:9px 10px;border-radius:8px;cursor:pointer;font-size:0.85em;">⭐ 9-10 (Mükemmel)</button>
+                    <button class="puan-filtre-opsiyon" data-puan="10-10" onclick="puanFiltreSec('10-10')" style="display:block;width:100%;text-align:left;background:none;border:none;color:#e0e7ff;padding:9px 10px;border-radius:8px;cursor:pointer;font-size:0.85em;">⭐ 10 (Kusursuz)</button>
+                    <button class="puan-filtre-opsiyon" data-puan="9-9" onclick="puanFiltreSec('9-9')" style="display:block;width:100%;text-align:left;background:none;border:none;color:#e0e7ff;padding:9px 10px;border-radius:8px;cursor:pointer;font-size:0.85em;">⭐ 9 (Mükemmel)</button>
                     <button class="puan-filtre-opsiyon" data-puan="7-8" onclick="puanFiltreSec('7-8')" style="display:block;width:100%;text-align:left;background:none;border:none;color:#e0e7ff;padding:9px 10px;border-radius:8px;cursor:pointer;font-size:0.85em;">⭐ 7-8 (İyi)</button>
                     <button class="puan-filtre-opsiyon" data-puan="5-6" onclick="puanFiltreSec('5-6')" style="display:block;width:100%;text-align:left;background:none;border:none;color:#e0e7ff;padding:9px 10px;border-radius:8px;cursor:pointer;font-size:0.85em;">⭐ 5-6 (Orta)</button>
                     <button class="puan-filtre-opsiyon" data-puan="1-4" onclick="puanFiltreSec('1-4')" style="display:block;width:100%;text-align:left;background:none;border:none;color:#e0e7ff;padding:9px 10px;border-radius:8px;cursor:pointer;font-size:0.85em;">⭐ 1-4 (Düşük)</button>
@@ -464,6 +465,16 @@
                     <option value="Tümü">Hepsi (Dizi + Film)</option>
                     <option value="Dizi">📺 Sadece Diziler</option>
                     <option value="Film">🎬 Sadece Filmler</option>
+                </select>
+            </div>
+            <div style="margin-bottom:14px;">
+                <label style="display:block;font-size:0.85em;color:#c084fc;margin-bottom:8px;">Puan</label>
+                <select id="sharePuan" style="width:100%;padding:10px;border-radius:8px;background:rgba(71,63,136,0.6);border:1px solid rgba(168,85,247,0.3);color:white;">
+                    <option value="tumu">Hepsi (puan farketmez)</option>
+                    <option value="10-10">⭐ Sadece 10 puanlılar</option>
+                    <option value="9-10">⭐ 9-10 puanlılar</option>
+                    <option value="7-10">⭐ 7 ve üzeri</option>
+                    <option value="5-10">⭐ 5 ve üzeri</option>
                 </select>
             </div>
             <canvas id="shareCanvas" style="display:none;"></canvas>
@@ -1658,6 +1669,44 @@ function statBar(etiket, sayi, toplam, renk) {
 }
 
 // ---- PAYLAŞIM ----
+
+// Poster görsellerini canvas'a çizebilmek için önce fetch+blob ile indirip yerel blob URL'e çeviriyoruz.
+// Bu yöntem, doğrudan <img crossOrigin> ile yüklemeye göre çok daha güvenilir çalışıyor
+// (bazı CDN'ler crossOrigin='anonymous' isteğini reddediyor ama normal fetch isteğine izin veriyor).
+async function posterGorseliYukle(url) {
+    if (!url || url.startsWith('data:')) {
+        // Zaten yerel/inline bir görsel (SVG placeholder gibi) — doğrudan yükle, fetch'e gerek yok
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => resolve({ img, blobUrl: null });
+            img.onerror = () => resolve(null);
+            img.src = url;
+        });
+    }
+    try {
+        const res = await fetch(url, { mode: 'cors' });
+        if (!res.ok) throw new Error('poster indirilemedi');
+        const blob = await res.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const img = await new Promise((resolve, reject) => {
+            const im = new Image();
+            im.onload = () => resolve(im);
+            im.onerror = () => reject(new Error('görsel çözümlenemedi'));
+            im.src = blobUrl;
+        });
+        return { img, blobUrl };
+    } catch (e) {
+        // Yedek yol: doğrudan crossOrigin ile dene, o da olmazsa vazgeç (renkli blok fallback devreye girer)
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => resolve({ img, blobUrl: null });
+            img.onerror = () => resolve(null);
+            img.src = url;
+        });
+    }
+}
+
 let sharePages = []; // { blob, url }
 let currentSharePage = 0;
 
@@ -1688,6 +1737,12 @@ function kapsamiUygula(scope) {
 
     const tur = document.getElementById('shareTur') ? document.getElementById('shareTur').value : 'Tümü';
     if (tur !== 'Tümü') sonuc = sonuc.filter(d => d.tur === tur);
+
+    const puanSecimi = document.getElementById('sharePuan') ? document.getElementById('sharePuan').value : 'tumu';
+    if (puanSecimi !== 'tumu') {
+        const [altSinir, ustSinir] = puanSecimi.split('-').map(Number);
+        sonuc = sonuc.filter(d => d.puan && d.puan >= altSinir && d.puan <= ustSinir);
+    }
     return sonuc;
 }
 
@@ -1717,13 +1772,9 @@ async function kartOlustur() {
 
     for (let p = 0; p < sayfalar.length; p++) {
         const gosterilecek = sayfalar[p];
-        const yuklenenGorseller = await Promise.all(gosterilecek.map(d => new Promise((resolve) => {
-            const img = new Image();
-            img.crossOrigin = 'anonymous';
-            img.onload = () => resolve(img);
-            img.onerror = () => resolve(null);
-            img.src = d.poster;
-        })));
+        const yuklenenSonuclar = await Promise.all(gosterilecek.map(d => posterGorseliYukle(d.poster)));
+        const yuklenenGorseller = yuklenenSonuclar.map(s => s ? s.img : null);
+        const geciciBlobUrller = yuklenenSonuclar.filter(s => s && s.blobUrl).map(s => s.blobUrl);
 
         const canvas = document.getElementById('shareCanvas');
         const W = 1080;
@@ -1759,7 +1810,10 @@ async function kartOlustur() {
         ctx.font = '400 30px Arial';
         ctx.fillStyle = '#c084fc';
         const turEki = document.getElementById('shareTur').value !== 'Tümü' ? (' • ' + document.getElementById('shareTur').value) : '';
-        ctx.fillText((baslikMap[scope] || '') + turEki, W/2, 132);
+        const puanEkiSecim = document.getElementById('sharePuan').value;
+        const puanEkiMap = { '10-10': ' • Sadece 10 puan', '9-10': ' • 9-10 puan', '7-10': ' • 7+ puan', '5-10': ' • 5+ puan' };
+        const puanEki = puanEkiMap[puanEkiSecim] || '';
+        ctx.fillText((baslikMap[scope] || '') + turEki + puanEki, W/2, 132);
         ctx.font = '700 44px Arial';
         ctx.fillStyle = '#a855f7';
         let sayacYazi = items.length + ' yapım';
@@ -1813,6 +1867,7 @@ async function kartOlustur() {
         if (blob) {
             sharePages.push({ blob, url: URL.createObjectURL(blob) });
         }
+        geciciBlobUrller.forEach(u => URL.revokeObjectURL(u)); // poster indirme için kullanılan geçici URL'ler artık gereksiz
     }
 
     document.getElementById('shareLoading').style.display = 'none';
@@ -1888,19 +1943,25 @@ function metinOlustur() {
 async function whatsappPaylas() {
     if (sharePages.length === 0) { toast('Önce kart oluştur'); return; }
     const text = metinOlustur();
-    const blob = sharePages[currentSharePage].blob;
-    if (navigator.share && navigator.canShare && navigator.canShare({ files: [new File([blob], 'seyir-defteri.png', { type: 'image/png' })] })) {
+    // Tek sayfa varsa onu, birden fazla sayfa varsa HEPSİNİ birden paylaş (Web Share API çoklu dosya destekliyor)
+    const dosyalar = sharePages.map((sayfa, i) => new File([sayfa.blob], 'seyir-defteri-' + (i+1) + '.png', { type: 'image/png' }));
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: dosyalar })) {
         try {
-            await navigator.share({
-                files: [new File([blob], 'seyir-defteri.png', { type: 'image/png' })],
-                title: 'Seyir Defterim',
-                text: text
-            });
+            await navigator.share({ files: dosyalar, title: 'Seyir Defterim', text: text });
             return;
         } catch (e) { /* kullanıcı iptal etti veya hata oldu, alttaki yedeğe düş */ }
     }
+    // Çoklu dosya paylaşımı desteklenmiyorsa, en azından mevcut sayfayı paylaşmayı dene
+    const tekDosya = [dosyalar[currentSharePage]];
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: tekDosya })) {
+        try {
+            await navigator.share({ files: tekDosya, title: 'Seyir Defterim', text: text });
+            toast(sharePages.length > 1 ? 'Sadece bu sayfa paylaşıldı — diğerlerini "Tüm Sayfaları İndir" ile alabilirsin' : '');
+            return;
+        } catch (e) { /* iptal edildi */ }
+    }
     window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
-    toast('Görseli de indirip WhatsApp\'a ekle');
+    toast('Görselleri de indirip WhatsApp\'a ekle');
 }
 
 function gorseliIndir() {
@@ -2020,13 +2081,9 @@ async function onerKartOlustur() {
     document.getElementById('recommendActions').style.display = 'none';
 
     try {
-    const img = await new Promise((resolve) => {
-        const im = new Image();
-        im.crossOrigin = 'anonymous';
-        im.onload = () => resolve(im);
-        im.onerror = () => resolve(null);
-        im.src = recommendData.poster;
-    });
+    const yukleSonuc = await posterGorseliYukle(recommendData.poster);
+    const img = yukleSonuc ? yukleSonuc.img : null;
+    const geciciBlobUrl = yukleSonuc ? yukleSonuc.blobUrl : null;
 
     const canvas = document.getElementById('recommendCanvas');
     const W = 1080, H = 1500;
@@ -2112,6 +2169,7 @@ async function onerKartOlustur() {
     ctx.fillText('🎥 ' + (kullaniciAdi ? kullaniciAdi + "'dan öneri" : 'Seyir Defteri\'nden öneri'), W/2, H - 40);
 
     canvas.toBlob((blob) => {
+        if (geciciBlobUrl) URL.revokeObjectURL(geciciBlobUrl); // poster indirme için kullanılan geçici URL artık gereksiz
         document.getElementById('recommendLoading').style.display = 'none';
         if (!blob) {
             toast('Görsel oluşturulamadı, metin olarak paylaşabilirsin');
