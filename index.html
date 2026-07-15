@@ -379,9 +379,20 @@
             <input type="file" id="jsonImportInput" accept="application/json" style="display:none;" onchange="jsonGeriYukle(event)">
         </div>
         <div class="content">
-            <div class="view-toggle">
+            <div class="view-toggle" style="position:relative;">
                 <button class="active" onclick="gorunumDegistir('grid', event)">▦ Grid</button>
                 <button onclick="gorunumDegistir('list', event)">☰ Liste</button>
+                <button id="puanFiltreBtn" onclick="puanFiltrePaneliAcKapa()" style="margin-left:auto;position:relative;" title="Puana göre filtrele">
+                    ⭐ Puan Filtresi <span id="puanFiltreAktifNokta" style="display:none;width:8px;height:8px;border-radius:50%;background:#facc15;position:absolute;top:4px;right:4px;"></span>
+                </button>
+                <div id="puanFiltrePaneli" style="display:none;position:absolute;top:110%;right:0;background:#171233;border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:10px;box-shadow:0 20px 45px rgba(0,0,0,0.5);z-index:40;min-width:200px;">
+                    <button class="puan-filtre-opsiyon" data-puan="tumu" onclick="puanFiltreSec('tumu')" style="display:block;width:100%;text-align:left;background:none;border:none;color:#e0e7ff;padding:9px 10px;border-radius:8px;cursor:pointer;font-size:0.85em;">Tümü</button>
+                    <button class="puan-filtre-opsiyon" data-puan="yok" onclick="puanFiltreSec('yok')" style="display:block;width:100%;text-align:left;background:none;border:none;color:#e0e7ff;padding:9px 10px;border-radius:8px;cursor:pointer;font-size:0.85em;">Puanlanmamış</button>
+                    <button class="puan-filtre-opsiyon" data-puan="9-10" onclick="puanFiltreSec('9-10')" style="display:block;width:100%;text-align:left;background:none;border:none;color:#e0e7ff;padding:9px 10px;border-radius:8px;cursor:pointer;font-size:0.85em;">⭐ 9-10 (Mükemmel)</button>
+                    <button class="puan-filtre-opsiyon" data-puan="7-8" onclick="puanFiltreSec('7-8')" style="display:block;width:100%;text-align:left;background:none;border:none;color:#e0e7ff;padding:9px 10px;border-radius:8px;cursor:pointer;font-size:0.85em;">⭐ 7-8 (İyi)</button>
+                    <button class="puan-filtre-opsiyon" data-puan="5-6" onclick="puanFiltreSec('5-6')" style="display:block;width:100%;text-align:left;background:none;border:none;color:#e0e7ff;padding:9px 10px;border-radius:8px;cursor:pointer;font-size:0.85em;">⭐ 5-6 (Orta)</button>
+                    <button class="puan-filtre-opsiyon" data-puan="1-4" onclick="puanFiltreSec('1-4')" style="display:block;width:100%;text-align:left;background:none;border:none;color:#e0e7ff;padding:9px 10px;border-radius:8px;cursor:pointer;font-size:0.85em;">⭐ 1-4 (Düşük)</button>
+                </div>
             </div>
             <div id="content"></div>
         </div>
@@ -432,7 +443,7 @@
     </div>
 
     <div class="modal-overlay" id="shareModal" role="dialog" aria-modal="true">
-        <div class="modal" style="max-width:420px;">
+        <div class="modal" style="max-width:420px;max-height:88vh;overflow-y:auto;">
             <h3>Koleksiyonunu Paylaş</h3>
             <div style="margin-bottom:12px;">
                 <label style="display:block;font-size:0.85em;color:#c084fc;margin-bottom:8px;">Adın (kartın altında görünür)</label>
@@ -562,6 +573,7 @@ let goruntuleme = 'grid';
 let aktifFiltre = 'Tümü';
 let aktifTurFiltre = 'Tümü';
 let aktifKategoriFiltre = new Set();
+let aktifPuanFiltre = 'tumu';
 let etiketDuzenlenenId = null;
 let aramaTimeout = null;
 let currentResults = [];
@@ -1301,6 +1313,13 @@ function guncelle() {
     let gosterilecek = aktifFiltre === 'Tümü' ? veriler : veriler.filter(d => d.durum === aktifFiltre);
     if (aktifTurFiltre !== 'Tümü') gosterilecek = gosterilecek.filter(d => d.tur === aktifTurFiltre);
     if (aktifKategoriFiltre.size > 0) gosterilecek = gosterilecek.filter(d => (d.kategoriler || []).some(k => aktifKategoriFiltre.has(k)));
+    if (aktifPuanFiltre !== 'tumu') {
+        if (aktifPuanFiltre === 'yok') gosterilecek = gosterilecek.filter(d => !d.puan);
+        else {
+            const [altSinir, ustSinir] = aktifPuanFiltre.split('-').map(Number);
+            gosterilecek = gosterilecek.filter(d => d.puan && d.puan >= altSinir && d.puan <= ustSinir);
+        }
+    }
 
     const content = document.getElementById('content');
     if (!content) return;
@@ -1392,6 +1411,30 @@ function kategoriFiltreSec(kategori) {
     else aktifKategoriFiltre.add(kategori);
     guncelle();
 }
+
+// ---- PUAN FİLTRESİ ----
+function puanFiltrePaneliAcKapa() {
+    const panel = document.getElementById('puanFiltrePaneli');
+    panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+}
+function puanFiltreSec(deger) {
+    aktifPuanFiltre = deger;
+    document.querySelectorAll('.puan-filtre-opsiyon').forEach(b => {
+        const secili = b.dataset.puan === deger;
+        b.style.background = secili ? 'linear-gradient(135deg,#a855f7,#8b5cf6)' : 'none';
+        b.style.color = secili ? 'white' : '#e0e7ff';
+    });
+    document.getElementById('puanFiltreAktifNokta').style.display = deger === 'tumu' ? 'none' : 'block';
+    document.getElementById('puanFiltrePaneli').style.display = 'none';
+    guncelle();
+}
+document.addEventListener('click', (e) => {
+    const panel = document.getElementById('puanFiltrePaneli');
+    const btn = document.getElementById('puanFiltreBtn');
+    if (panel && panel.style.display === 'block' && !e.target.closest('#puanFiltrePaneli') && !e.target.closest('#puanFiltreBtn')) {
+        panel.style.display = 'none';
+    }
+});
 
 // ---- ETİKET DÜZENLEME MODALI ----
 function etiketModalAc(id) {
@@ -1782,6 +1825,7 @@ async function kartOlustur() {
     sayfaGoster();
     document.getElementById('shareActions').style.display = 'flex';
     document.getElementById('downloadAllBtn').style.display = sharePages.length > 1 ? 'block' : 'none';
+    document.getElementById('shareActions').scrollIntoView({ behavior: 'smooth', block: 'end' });
     } catch (err) {
         console.error('Kart oluşturma hatası:', err);
         document.getElementById('shareLoading').style.display = 'none';
@@ -2081,6 +2125,7 @@ async function onerKartOlustur() {
         preview.src = recommendUrl;
         preview.style.display = 'block';
         document.getElementById('recommendActions').style.display = 'flex';
+        document.getElementById('recommendActions').scrollIntoView({ behavior: 'smooth', block: 'end' });
     }, 'image/png');
     } catch (err) {
         console.error('Öneri kartı hatası:', err);
