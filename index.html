@@ -279,6 +279,15 @@
     }
     .rec-tag.selected { background: linear-gradient(135deg,#f59e0b,#ef4444); border-color:transparent; color:white; box-shadow: 0 4px 14px rgba(239,68,68,0.3); }
 
+    .tag-chip {
+        background: rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); color:#e0e7ff;
+        padding:8px 14px; border-radius:18px; cursor:pointer; font-size:0.8em; font-weight:600; transition: all 0.2s ease;
+    }
+    .tag-chip.selected { background: linear-gradient(135deg,#a855f7,#8b5cf6); border-color:transparent; color:white; box-shadow: 0 4px 14px rgba(168,85,247,0.3); }
+
+    .kategori-filter-btn.active { background: linear-gradient(135deg,#8b5cf6,#a855f7); color:white; border-color:transparent; }
+    .tur-filter-btn.active { background: linear-gradient(135deg,#a855f7,#ec4899); color:white; border-color:transparent; }
+
     .hidden { display:none !important; }
     .sr-only {
         position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden;
@@ -331,8 +340,11 @@
     <div id="tabDiscover" class="hidden">
         <div class="discover-section">
             <div class="discover-title">Ne izledin?</div>
-            <div class="discover-sub">Posterlere dokunarak izlediklerini seç</div>
+            <div class="discover-sub">Posterlere dokunarak izlediklerini seç — eklediklerin kaybolur, yerine yenileri gelir</div>
             <div class="discover-grid" id="discoverGrid"></div>
+            <div style="text-align:center;margin-top:16px;">
+                <button id="dahaFazlaBtn" onclick="kesifManuelDahaFazla()" style="background:rgba(30,25,60,0.55);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:10px 20px;color:#c084fc;font-weight:600;cursor:pointer;">🔄 Daha Fazla Göster</button>
+            </div>
             <div class="discover-footer">
                 <button class="btn-discover-add" id="discoverAddBtn" onclick="secilenleriEkle()">Seçilenleri Ekle (0)</button>
             </div>
@@ -355,6 +367,12 @@
             <button class="filter-btn" style="margin-left:auto;background:linear-gradient(135deg,#f59e0b,#ef4444);color:white;border:none;box-shadow:0 4px 14px rgba(239,68,68,0.3);" onclick="onerAc()">🎁 Öner</button>
             <button class="filter-btn" style="background:linear-gradient(135deg,#a855f7,#ec4899);color:white;border:none;box-shadow:0 4px 14px rgba(168,85,247,0.35);" onclick="paylasimAc()">📤 Paylaş</button>
         </div>
+        <div class="filters" style="margin-top:-8px;">
+            <button class="filter-btn tur-filter-btn active" data-tur="Tümü" onclick="turFiltreSec('Tümü')">Tümü</button>
+            <button class="filter-btn tur-filter-btn" data-tur="Dizi" onclick="turFiltreSec('Dizi')">📺 Dizi</button>
+            <button class="filter-btn tur-filter-btn" data-tur="Film" onclick="turFiltreSec('Film')">🎬 Film</button>
+        </div>
+        <div class="filters" id="kategoriFiltreRow" style="margin-top:-8px;flex-wrap:wrap;"></div>
         <div class="filters" style="margin-top:-8px;">
             <button class="filter-btn" onclick="jsonYedekle()" title="Koleksiyonunu bir dosyaya kaydet">⬇️ Yedekle</button>
             <button class="filter-btn" onclick="document.getElementById('jsonImportInput').click()" title="Bir yedek dosyasından geri yükle">⬆️ Geri Yükle</button>
@@ -429,6 +447,14 @@
                     <option value="izlenecek">İzleme Listem</option>
                 </select>
             </div>
+            <div style="margin-bottom:14px;">
+                <label style="display:block;font-size:0.85em;color:#c084fc;margin-bottom:8px;">Tür</label>
+                <select id="shareTur" style="width:100%;padding:10px;border-radius:8px;background:rgba(71,63,136,0.6);border:1px solid rgba(168,85,247,0.3);color:white;">
+                    <option value="Tümü">Hepsi (Dizi + Film)</option>
+                    <option value="Dizi">📺 Sadece Diziler</option>
+                    <option value="Film">🎬 Sadece Filmler</option>
+                </select>
+            </div>
             <canvas id="shareCanvas" style="display:none;"></canvas>
             <div id="sharePreviewWrap" style="display:none;margin-bottom:10px;">
                 <img id="sharePreview" style="width:100%;border-radius:10px;display:block;border:1px solid rgba(168,85,247,0.3);">
@@ -453,6 +479,18 @@
     </div>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <div class="modal-overlay" id="tagModal" role="dialog" aria-modal="true">
+        <div class="modal" style="max-width:400px;">
+            <h3>🏷️ Etiketler</h3>
+            <p id="tagModalIsim" style="color:#a99bd6;font-size:0.85em;margin-bottom:14px;"></p>
+            <div id="tagChipsContainer" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px;"></div>
+            <div class="modal-buttons">
+                <button class="btn-cancel" onclick="etiketModalKapat()">Kapat</button>
+                <button class="btn-save" onclick="etiketleriKaydet()">Kaydet</button>
+            </div>
+        </div>
+    </div>
 
     <div class="modal-overlay" id="recommendModal" role="dialog" aria-modal="true">
         <div class="modal" style="max-width:420px;max-height:88vh;overflow-y:auto;">
@@ -522,6 +560,9 @@ try {
 } catch(e) { veriler = []; }
 let goruntuleme = 'grid';
 let aktifFiltre = 'Tümü';
+let aktifTurFiltre = 'Tümü';
+let aktifKategoriFiltre = new Set();
+let etiketDuzenlenenId = null;
 let aramaTimeout = null;
 let currentResults = [];
 let discoverItems = [];
@@ -553,19 +594,27 @@ let authModu = 'login';
 let cloudKaydetZamanlayici = null;
 
 function firebaseBaslat() {
-    if (!firebaseConfig.apiKey || firebaseConfig.apiKey === 'SENIN_API_KEYIN') {
+    const yerTutucuMu = !firebaseConfig.apiKey || firebaseConfig.apiKey === 'SENIN_API_KEYIN'
+        || !firebaseConfig.projectId || firebaseConfig.projectId === 'SENIN_PROJEN'
+        || !firebaseConfig.authDomain || firebaseConfig.authDomain === 'SENIN_PROJEN.firebaseapp.com';
+    if (yerTutucuMu) {
         return; // Henüz kurulmamış, hesapsız modda devam
     }
     try {
         firebase.initializeApp(firebaseConfig);
         db = firebase.firestore();
         firebaseHazir = true;
-        firebase.auth().onAuthStateChanged(kullanici => {
+        firebase.auth().onAuthStateChanged(async (kullanici) => {
             currentUser = kullanici;
             const btn = document.getElementById('syncBtn');
             if (kullanici) {
                 btn.textContent = '☁️ ' + kullanici.email;
-                bulutVeriYukle();
+                try {
+                    await bulutVeriYukle();
+                } catch (e) {
+                    console.error('Bulut senkron hatası:', e);
+                    toast('Senkron sırasında sorun oluştu, yerel veriler kullanılıyor');
+                }
             } else {
                 btn.textContent = '☁️ Hesapsız';
             }
@@ -582,8 +631,11 @@ function syncButonTiklandi() {
     }
     if (currentUser) {
         if (confirm('Çıkış yapmak istediğine emin misin? Veriler bu cihazda saklı kalmaya devam eder.')) {
-            firebase.auth().signOut();
-            toast('Çıkış yapıldı');
+            firebase.auth().signOut().then(() => {
+                // Bellekteki state'i (önceki hesabın verilerini) tamamen temizlemek için sayfayı yenile.
+                // Böylece başka bir hesapla giriş yapıldığında eski hesabın verileri karışmaz.
+                location.reload();
+            });
         }
     } else {
         document.getElementById('authModal').classList.add('active');
@@ -743,18 +795,53 @@ document.addEventListener('keydown', (e) => {
 
 // ---- API ÖNBELLEKLEME (aynı sorguyu tekrar tekrar internete gönderme) ----
 const API_CACHE_TTL = 1000 * 60 * 60 * 24; // 24 saat
+let apiCacheTemizlikSayaci = 0;
 
 function apiCacheOku(anahtar) {
     try {
         const ham = localStorage.getItem('apiCache_' + anahtar);
         if (!ham) return null;
         const { veri, zaman } = JSON.parse(ham);
-        if (Date.now() - zaman > API_CACHE_TTL) return null;
+        if (Date.now() - zaman > API_CACHE_TTL) { localStorage.removeItem('apiCache_' + anahtar); return null; }
         return veri;
     } catch (e) { return null; }
 }
 function apiCacheYaz(anahtar, veri) {
-    try { localStorage.setItem('apiCache_' + anahtar, JSON.stringify({ veri, zaman: Date.now() })); } catch (e) { /* önbellek dolu olabilir, sorun değil */ }
+    // Her ~20 yazımda bir eski (süresi dolmuş) kayıtları temizle — sürekli taramak yerine ara sıra yapmak daha ucuz
+    apiCacheTemizlikSayaci++;
+    if (apiCacheTemizlikSayaci % 20 === 0) apiCacheEskileriTemizle();
+    try {
+        localStorage.setItem('apiCache_' + anahtar, JSON.stringify({ veri, zaman: Date.now() }));
+    } catch (e) {
+        // Depolama dolu: en eski önbellek kayıtlarından bir kısmını silip tekrar dene
+        apiCacheEnEskileriSil(10);
+        try { localStorage.setItem('apiCache_' + anahtar, JSON.stringify({ veri, zaman: Date.now() })); } catch (e2) { /* olmadıysa vazgeç, kritik değil */ }
+    }
+}
+function apiCacheEskileriTemizle() {
+    const simdi = Date.now();
+    Object.keys(localStorage).forEach(k => {
+        if (!k.startsWith('apiCache_')) return;
+        try {
+            const { zaman } = JSON.parse(localStorage.getItem(k));
+            if (simdi - zaman > API_CACHE_TTL) localStorage.removeItem(k);
+        } catch (e) { localStorage.removeItem(k); /* bozuk kayıt, temizle */ }
+    });
+}
+function apiCacheEnEskileriSil(adet) {
+    const kayitlar = Object.keys(localStorage)
+        .filter(k => k.startsWith('apiCache_'))
+        .map(k => {
+            try { return { k, z: JSON.parse(localStorage.getItem(k)).zaman || 0 }; }
+            catch (e) { return { k, z: 0 }; }
+        })
+        .sort((a, b) => a.z - b.z);
+    kayitlar.slice(0, adet).forEach(kayit => localStorage.removeItem(kayit.k));
+}
+
+function cssEscape(str) {
+    if (typeof CSS !== 'undefined' && CSS.escape) return CSS.escape(str);
+    return String(str).replace(/([!"#$%&'()*+,\-./:;<=>?@[\\\]^`{|}~])/g, '\\$1');
 }
 
 function listedeVarMi(isim) {
@@ -762,7 +849,14 @@ function listedeVarMi(isim) {
     return veriler.some(d => d.isim.trim().toLocaleLowerCase('tr') === temiz);
 }
 
+let aramaController = null;
+
 async function aramaYap(query) {
+    // Önceki arama hâlâ sürüyorsa iptal et — yeni yazılan harfler yüzünden eski sonuçlar geç gelip ekranı ezmesin
+    if (aramaController) aramaController.abort();
+    aramaController = new AbortController();
+    const buAramaSinyali = aramaController.signal;
+
     searchResults.innerHTML = '<div class="loading">Aranıyor...</div>';
     searchResults.classList.add('active'); searchInput.setAttribute('aria-expanded','true');
     try {
@@ -770,7 +864,7 @@ async function aramaYap(query) {
         const cacheAnahtariDizi = 'arama_dizi_' + query.trim().toLocaleLowerCase('tr');
         let diziVeri = apiCacheOku(cacheAnahtariDizi);
         if (!diziVeri) {
-            const res = await fetch('https://api.tvmaze.com/search/shows?q=' + encodeURIComponent(query));
+            const res = await fetch('https://api.tvmaze.com/search/shows?q=' + encodeURIComponent(query), { signal: buAramaSinyali });
             if (!res.ok) throw new Error('API hatası');
             diziVeri = await res.json();
             apiCacheYaz(cacheAnahtariDizi, diziVeri);
@@ -790,12 +884,12 @@ async function aramaYap(query) {
             let filmVeri = apiCacheOku(cacheAnahtariFilm);
             if (!filmVeri) {
                 try {
-                    const res2 = await fetch('https://api.themoviedb.org/3/search/movie?api_key=' + tmdbApiKey + '&query=' + encodeURIComponent(query) + '&language=tr-TR');
+                    const res2 = await fetch('https://api.themoviedb.org/3/search/movie?api_key=' + tmdbApiKey + '&query=' + encodeURIComponent(query) + '&language=tr-TR', { signal: buAramaSinyali });
                     if (res2.ok) {
                         filmVeri = await res2.json();
                         apiCacheYaz(cacheAnahtariFilm, filmVeri);
                     }
-                } catch (e) { /* TMDB erişilemedi, sadece dizi sonuçlarıyla devam */ }
+                } catch (e) { if (e.name === 'AbortError') throw e; /* TMDB erişilemedi, sadece dizi sonuçlarıyla devam */ }
             }
             filmSonuclari = ((filmVeri && filmVeri.results) || []).slice(0, 6).map(item => ({
                 name: item.title,
@@ -833,10 +927,14 @@ async function aramaYap(query) {
             el.addEventListener('click', () => hizliEkle(currentResults[idx]));
         });
     } catch (err) {
+        if (err.name === 'AbortError') return; // yeni bir arama başladı, bu eskisi sessizce bırakılıyor
         searchResults.innerHTML = '<div class="no-results">Arama başarısız oldu. İnternet bağlantını kontrol et veya manuel ekle.</div>';
         console.error(err);
     }
 }
+
+// ---- KATEGORİLER (etiketler) ----
+const KATEGORI_LISTESI = ['Polisiye', 'Hapishane', 'Sitcom', 'Bilim Kurgu', 'Tarih', 'Macera', 'Aksiyon', 'Savaş', 'Komedi', 'Dram', 'Romantik', 'Korku', 'Gizem', 'Fantastik', 'Belgesel'];
 
 function hizliEkle(item) {
     if (listedeVarMi(item.name)) {
@@ -850,6 +948,7 @@ function hizliEkle(item) {
         tur: item.kategori || 'Dizi',
         durum: 'İzlenecek',
         puan: null,
+        kategoriler: [],
         tarih: new Date().toLocaleDateString('tr-TR')
     };
     veriler.unshift(yeni);
@@ -885,7 +984,7 @@ function manuelEkleKaydet() {
     const tur = document.getElementById('mTur').value;
     if (!isim) { alert('Lütfen bir ad gir'); return; }
     if (listedeVarMi(isim)) { toast(isim + ' zaten listende ✓'); manuelEkleKapat(); return; }
-    const yeni = { id: Date.now()+Math.random(), isim, poster: poster || placeholderUrl(isim), tur, durum: 'İzlenecek', puan: null, tarih: new Date().toLocaleDateString('tr-TR') };
+    const yeni = { id: Date.now()+Math.random(), isim, poster: poster || placeholderUrl(isim), tur, durum: 'İzlenecek', puan: null, kategoriler: [], tarih: new Date().toLocaleDateString('tr-TR') };
     veriler.unshift(yeni);
     kaydet();
     manuelEkleKapat();
@@ -903,8 +1002,65 @@ const KESIF_YEDEK_LISTESI = [
 
 let kesifYukleniyor = false;
 let kesifYuklendi = false;
+let tvSonSayfa = -1;
+let filmSonSayfa = 0;
 
 function bekle(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function tvSayfasiGetir(sayfa) {
+    const cacheAnahtari = 'kesif_tv_sayfa_' + sayfa;
+    const onbellek = apiCacheOku(cacheAnahtari);
+    if (onbellek) return onbellek;
+    try {
+        const res = await fetch('https://api.tvmaze.com/shows?page=' + sayfa);
+        if (!res.ok) return [];
+        const tumDiziler = await res.json();
+        const sonuc = tumDiziler
+            .filter(s => s.image && s.image.medium)
+            .sort((a, b) => (b.weight || 0) - (a.weight || 0))
+            .slice(0, 36)
+            .map(s => ({
+                isim: s.name,
+                poster: s.image.medium,
+                rating: s.rating && s.rating.average ? s.rating.average : null,
+                imdb: s.externals && s.externals.imdb ? s.externals.imdb : null,
+                kategori: 'Dizi'
+            }));
+        apiCacheYaz(cacheAnahtari, sonuc);
+        return sonuc;
+    } catch (e) { return []; }
+}
+
+async function filmSayfasiGetir(sayfa) {
+    if (!tmdbHazir) return [];
+    const cacheAnahtari = 'kesif_film_sayfa_' + sayfa;
+    const onbellek = apiCacheOku(cacheAnahtari);
+    if (onbellek) return onbellek;
+    try {
+        const res = await fetch('https://api.themoviedb.org/3/movie/popular?api_key=' + tmdbApiKey + '&language=tr-TR&page=' + sayfa);
+        if (!res.ok) return [];
+        const veri = await res.json();
+        const sonuc = (veri.results || [])
+            .filter(f => f.poster_path)
+            .map(f => ({
+                isim: f.title,
+                poster: TMDB_IMG + f.poster_path,
+                rating: f.vote_average ? Math.round(f.vote_average * 10) / 10 : null,
+                imdb: null,
+                kategori: 'Film'
+            }));
+        apiCacheYaz(cacheAnahtari, sonuc);
+        return sonuc;
+    } catch (e) { return []; }
+}
+
+function karistir(dizi) {
+    for (let i = dizi.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [dizi[i], dizi[j]] = [dizi[j], dizi[i]];
+    }
+    return dizi;
+}
 
 async function yukleKesifIzgara() {
     if (kesifYukleniyor || kesifYuklendi) return; // aynı anda birden fazla yükleme başlatma
@@ -912,81 +1068,32 @@ async function yukleKesifIzgara() {
     const grid = document.getElementById('discoverGrid');
     if (discoverItems.length === 0) grid.innerHTML = '<div class="loading">Yükleniyor...</div>';
     try {
-        const cacheAnahtari = 'kesif_liste_toplu_v2';
-        let sonuclar = apiCacheOku(cacheAnahtari);
+        tvSonSayfa = 0;
+        filmSonSayfa = 2;
+        const [tvSonuc, film1, film2] = await Promise.all([
+            tvSayfasiGetir(0), filmSayfasiGetir(1), filmSayfasiGetir(2)
+        ]);
+        let sonuclar = [...tvSonuc, ...film1, ...film2];
 
-        if (!sonuclar) {
-            sonuclar = [];
-
-            // 1) DİZİLER: TVMaze'in toplu uç noktasından çekip "weight" (popülerlik) değerine göre sırala.
-            // Bu, tek tek isim aramaktan çok daha hızlı ve çok daha fazla çeşit sağlıyor.
-            try {
-                const diziRes = await fetch('https://api.tvmaze.com/shows?page=0');
-                if (diziRes.ok) {
-                    const tumDiziler = await diziRes.json();
-                    const populerDiziler = tumDiziler
-                        .filter(s => s.image && s.image.medium)
-                        .sort((a, b) => (b.weight || 0) - (a.weight || 0))
-                        .slice(0, 36)
-                        .map(s => ({
-                            isim: s.name,
-                            poster: s.image.medium,
-                            rating: s.rating && s.rating.average ? s.rating.average : null,
-                            imdb: s.externals && s.externals.imdb ? s.externals.imdb : null,
-                            kategori: 'Dizi'
-                        }));
-                    sonuclar.push(...populerDiziler);
-                }
-            } catch (e) { /* dizi listesi alınamadı, filmlerle devam */ }
-
-            // 2) FİLMLER: TMDB yapılandırıldıysa popüler filmleri de ekle (sadece TMDB anahtarı girildiyse çalışır)
-            if (tmdbHazir) {
-                try {
-                    const filmSayfa1 = await fetch('https://api.themoviedb.org/3/movie/popular?api_key=' + tmdbApiKey + '&language=tr-TR&page=1');
-                    const filmSayfa2 = await fetch('https://api.themoviedb.org/3/movie/popular?api_key=' + tmdbApiKey + '&language=tr-TR&page=2');
-                    const veri1 = filmSayfa1.ok ? await filmSayfa1.json() : { results: [] };
-                    const veri2 = filmSayfa2.ok ? await filmSayfa2.json() : { results: [] };
-                    const filmler = [...(veri1.results || []), ...(veri2.results || [])]
-                        .filter(f => f.poster_path)
-                        .map(f => ({
-                            isim: f.title,
-                            poster: TMDB_IMG + f.poster_path,
-                            rating: f.vote_average ? Math.round(f.vote_average * 10) / 10 : null,
-                            imdb: null,
-                            kategori: 'Film'
-                        }));
-                    sonuclar.push(...filmler);
-                } catch (e) { /* film listesi alınamadı, sorun değil */ }
+        // Toplu uçlar tamamen başarısız olduysa (internet/CORS sorunu), küçük yedek listeye düş
+        if (sonuclar.length === 0) {
+            for (let i = 0; i < KESIF_YEDEK_LISTESI.length; i += 4) {
+                const grup = KESIF_YEDEK_LISTESI.slice(i, i + 4);
+                const grupSonuc = await Promise.all(grup.map(async (isim) => {
+                    try {
+                        const res = await fetch('https://api.tvmaze.com/singlesearch/shows?q=' + encodeURIComponent(isim));
+                        if (!res.ok) return null;
+                        const data = await res.json();
+                        if (!data.image) return null;
+                        return { isim: data.name || isim, poster: data.image.medium, rating: data.rating && data.rating.average ? data.rating.average : null, imdb: data.externals && data.externals.imdb ? data.externals.imdb : null, kategori: 'Dizi' };
+                    } catch (e) { return null; }
+                }));
+                sonuclar.push(...grupSonuc.filter(Boolean));
+                if (i + 4 < KESIF_YEDEK_LISTESI.length) await bekle(250);
             }
-
-            // 3) Toplu uçlar tamamen başarısız olduysa (internet/CORS sorunu), küçük yedek listeye düş
-            if (sonuclar.length === 0) {
-                for (let i = 0; i < KESIF_YEDEK_LISTESI.length; i += 4) {
-                    const grup = KESIF_YEDEK_LISTESI.slice(i, i + 4);
-                    const grupSonuc = await Promise.all(grup.map(async (isim) => {
-                        try {
-                            const res = await fetch('https://api.tvmaze.com/singlesearch/shows?q=' + encodeURIComponent(isim));
-                            if (!res.ok) return null;
-                            const data = await res.json();
-                            if (!data.image) return null;
-                            return { isim: data.name || isim, poster: data.image.medium, rating: data.rating && data.rating.average ? data.rating.average : null, imdb: data.externals && data.externals.imdb ? data.externals.imdb : null, kategori: 'Dizi' };
-                        } catch (e) { return null; }
-                    }));
-                    sonuclar.push(...grupSonuc.filter(Boolean));
-                    if (i + 4 < KESIF_YEDEK_LISTESI.length) await bekle(250);
-                }
-            }
-
-            // Dizi/film karışık, hafif karıştırılmış (her seferinde aynı sırayla gelmesin)
-            for (let i = sonuclar.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [sonuclar[i], sonuclar[j]] = [sonuclar[j], sonuclar[i]];
-            }
-
-            apiCacheYaz(cacheAnahtari, sonuclar);
         }
 
-        discoverItems = sonuclar;
+        discoverItems = karistir(sonuclar);
         renderKesifIzgara();
         renderPosterBg(discoverItems.map(d => d.poster));
         kesifYuklendi = true;
@@ -995,6 +1102,34 @@ async function yukleKesifIzgara() {
     } finally {
         kesifYukleniyor = false;
     }
+}
+
+let kesifDahaFazlaYukleniyor = false;
+async function kesifDahaFazlaGetir() {
+    if (kesifDahaFazlaYukleniyor) return 0;
+    kesifDahaFazlaYukleniyor = true;
+    try {
+        tvSonSayfa++;
+        filmSonSayfa++;
+        const [tvSonuc, filmSonuc] = await Promise.all([tvSayfasiGetir(tvSonSayfa), filmSayfasiGetir(filmSonSayfa)]);
+        const mevcutIsimler = new Set(discoverItems.map(d => d.isim.trim().toLocaleLowerCase('tr')));
+        const yeniler = [...tvSonuc, ...filmSonuc].filter(item => !mevcutIsimler.has(item.isim.trim().toLocaleLowerCase('tr')));
+        discoverItems.push(...karistir(yeniler));
+        renderKesifIzgara();
+        return yeniler.length;
+    } finally {
+        kesifDahaFazlaYukleniyor = false;
+    }
+}
+
+async function kesifManuelDahaFazla() {
+    const btn = document.getElementById('dahaFazlaBtn');
+    btn.textContent = '⏳ Yükleniyor...';
+    btn.disabled = true;
+    const eklenen = await kesifDahaFazlaGetir();
+    btn.textContent = '🔄 Daha Fazla Göster';
+    btn.disabled = false;
+    if (eklenen === 0) toast('Şu an için yeni içerik bulunamadı, tekrar dene');
 }
 
 function renderPosterBg(posters) {
@@ -1011,40 +1146,45 @@ function renderPosterBg(posters) {
 
 function renderKesifIzgara() {
     const grid = document.getElementById('discoverGrid');
-    if (discoverItems.length === 0) {
-        grid.innerHTML = '<div class="no-results">Gösterilecek içerik yok.</div>';
+    // Zaten koleksiyonda olanları hiç gösterme — sadece henüz izlenmemiş/eklenmemiş içerik kalsın
+    const gosterilecekler = discoverItems.filter(item => !listedeVarMi(item.isim));
+
+    if (gosterilecekler.length === 0) {
+        grid.innerHTML = '<div class="loading">Daha fazla içerik getiriliyor...</div>';
+        kesifDahaFazlaGetir();
         return;
     }
-    grid.innerHTML = discoverItems.map((item, idx) => `
-        <div class="discover-card ${listedeVarMi(item.isim) ? 'already-added' : ''}" data-idx="${idx}" role="button" tabindex="0" aria-pressed="false">
+
+    grid.innerHTML = gosterilecekler.map((item) => `
+        <div class="discover-card" data-key="${escapeHtml(item.isim)}" role="button" tabindex="0" aria-pressed="false">
             <img class="discover-poster" src="${item.poster}" alt="">
             <span class="discover-kategori">${item.kategori === 'Film' ? '🎬' : '📺'}</span>
             <div class="discover-check">✓</div>
             <div class="discover-name"></div>
         </div>
     `).join('');
-    [...grid.querySelectorAll('.discover-card')].forEach((el, idx) => {
-        el.querySelector('.discover-name').textContent = discoverItems[idx].isim;
-        if (el.classList.contains('already-added')) {
-            el.querySelector('.discover-name').textContent = discoverItems[idx].isim + ' (ekli)';
-            el.setAttribute('aria-disabled', 'true');
-            el.addEventListener('click', () => toast(discoverItems[idx].isim + ' zaten listende ✓'));
-        } else {
-            el.addEventListener('click', () => toggleDiscoverSelect(idx, el));
-            el.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleDiscoverSelect(idx, el); }
-            });
-        }
+    [...grid.querySelectorAll('.discover-card')].forEach((el, i) => {
+        const item = gosterilecekler[i];
+        el.querySelector('.discover-name').textContent = item.isim;
+        el.classList.toggle('selected', selectedDiscover.has(item.isim));
+        el.setAttribute('aria-pressed', selectedDiscover.has(item.isim) ? 'true' : 'false');
+        el.addEventListener('click', () => toggleDiscoverSelect(item.isim, el));
+        el.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleDiscoverSelect(item.isim, el); }
+        });
     });
+
+    // Havuz azaldıysa sessizce arka planda daha fazlasını getir (kullanıcı fark etmeden hazır olsun)
+    if (gosterilecekler.length < 15) kesifDahaFazlaGetir();
 }
 
-function toggleDiscoverSelect(idx, el) {
-    if (selectedDiscover.has(idx)) {
-        selectedDiscover.delete(idx);
+function toggleDiscoverSelect(isim, el) {
+    if (selectedDiscover.has(isim)) {
+        selectedDiscover.delete(isim);
         el.classList.remove('selected');
         el.setAttribute('aria-pressed', 'false');
     } else {
-        selectedDiscover.add(idx);
+        selectedDiscover.add(isim);
         el.classList.add('selected');
         el.setAttribute('aria-pressed', 'true');
     }
@@ -1055,9 +1195,9 @@ function toggleDiscoverSelect(idx, el) {
 
 function secilenleriEkle() {
     let eklenen = 0;
-    selectedDiscover.forEach(idx => {
-        const item = discoverItems[idx];
-        if (listedeVarMi(item.isim)) return;
+    selectedDiscover.forEach(isim => {
+        const item = discoverItems.find(d => d.isim === isim);
+        if (!item || listedeVarMi(item.isim)) return;
         eklenen++;
         veriler.unshift({
             id: Date.now() + Math.random(),
@@ -1066,16 +1206,18 @@ function secilenleriEkle() {
             tur: item.kategori || 'Dizi',
             durum: 'İzlendi',
             puan: null,
+            kategoriler: [],
             tarih: new Date().toLocaleDateString('tr-TR')
         });
     });
     kaydet();
-    toast(eklenen + ' içerik eklendi ✓');
+    toast(eklenen + ' içerik eklendi ✓ Yeni öneriler geliyor...');
     selectedDiscover.clear();
     document.getElementById('discoverAddBtn').classList.remove('show');
     document.getElementById('discoverAddBtn').textContent = 'Seçilenleri Ekle (0)';
-    document.querySelectorAll('.discover-card.selected').forEach(el => el.classList.remove('selected'));
-    sekmeDegistir('list');
+    // Eklenenler artık "koleksiyonda" sayıldığı için otomatik olarak ızgaradan düşecek,
+    // yerlerine kalan/yeni gelen içerikler görünecek. Sekme değiştirmeden aynı ekranda kalıyoruz.
+    renderKesifIzgara();
 }
 
 // ---- KOLEKSİYON ----
@@ -1140,7 +1282,7 @@ function statKartlariGuncelle() {
 function kartTekilGuncelle(id) {
     const d = veriler.find(x => x.id == id);
     if (!d) return;
-    document.querySelectorAll(`[data-id="${CSS.escape(String(id))}"]`).forEach(el => {
+    document.querySelectorAll(`[data-id="${cssEscape(String(id))}"]`).forEach(el => {
         const durumSinifi = d.durum==='İzlenecek'?'izlenecek':d.durum==='İzleniyor'?'izleniyor':'izlendi';
         const statusTag = el.querySelector('[data-role="status"]');
         if (statusTag) { statusTag.className = 'status-tag status-' + durumSinifi; statusTag.textContent = d.durum; }
@@ -1154,13 +1296,17 @@ function kartTekilGuncelle(id) {
 
 function guncelle() {
     statKartlariGuncelle();
+    kategoriFiltreRowGuncelle();
 
-    const gosterilecek = aktifFiltre === 'Tümü' ? veriler : veriler.filter(d => d.durum === aktifFiltre);
+    let gosterilecek = aktifFiltre === 'Tümü' ? veriler : veriler.filter(d => d.durum === aktifFiltre);
+    if (aktifTurFiltre !== 'Tümü') gosterilecek = gosterilecek.filter(d => d.tur === aktifTurFiltre);
+    if (aktifKategoriFiltre.size > 0) gosterilecek = gosterilecek.filter(d => (d.kategoriler || []).some(k => aktifKategoriFiltre.has(k)));
+
     const content = document.getElementById('content');
     if (!content) return;
 
     if (gosterilecek.length === 0) {
-        content.innerHTML = '<div class="empty">Burada hiçbir şey yok. Ara, keşfet veya manuel ekle!</div>';
+        content.innerHTML = '<div class="empty">Bu filtreye uyan bir şey yok. Ara, keşfet veya manuel ekle!</div>';
         return;
     }
 
@@ -1174,6 +1320,7 @@ function guncelle() {
                 </div>
                 <div class="card-body">
                     <div class="card-title">${escapeHtml(d.isim)}</div>
+                    ${etiketCipleriGoster(d.kategoriler)}
                     <div class="card-controls">
                         <select onchange="durumDegistir(${d.id}, this.value)">
                             <option ${d.durum==='İzlenecek'?'selected':''}>İzlenecek</option>
@@ -1184,6 +1331,7 @@ function guncelle() {
                     </div>
                     <div class="card-controls" style="margin-top:6px;">
                         ${puanSecici(d.id, d.puan)}
+                        <button onclick="etiketModalAc(${d.id})" title="Etiketleri düzenle" style="background:rgba(168,85,247,0.2);border:1px solid rgba(168,85,247,0.4);color:#c084fc;border-radius:6px;padding:4px 8px;cursor:pointer;">🏷️</button>
                     </div>
                 </div>
             </div>
@@ -1195,7 +1343,11 @@ function guncelle() {
                 <div class="list-info">
                     <div class="list-title">${escapeHtml(d.isim)} <span class="rating-tag" data-role="rating" style="position:static;display:${d.puan ? 'inline-block' : 'none'};margin-left:6px;">${d.puan ? '⭐ ' + d.puan : ''}</span></div>
                     <div class="list-meta">${escapeHtml(d.tur)} • ${d.tarih}</div>
-                    <div style="margin-top:6px;">${puanSecici(d.id, d.puan)}</div>
+                    ${etiketCipleriGoster(d.kategoriler)}
+                    <div style="margin-top:6px;display:flex;gap:6px;">
+                        ${puanSecici(d.id, d.puan)}
+                        <button onclick="etiketModalAc(${d.id})" title="Etiketleri düzenle" style="background:rgba(168,85,247,0.2);border:1px solid rgba(168,85,247,0.4);color:#c084fc;border-radius:6px;padding:4px 8px;cursor:pointer;flex-shrink:0;">🏷️</button>
+                    </div>
                 </div>
                 <div class="list-controls">
                     <select onchange="durumDegistir(${d.id}, this.value)">
@@ -1208,6 +1360,67 @@ function guncelle() {
             </div>
         `).join('') + '</div>';
     }
+}
+
+function etiketCipleriGoster(kategoriler) {
+    if (!kategoriler || kategoriler.length === 0) return '';
+    return '<div style="display:flex;flex-wrap:wrap;gap:4px;margin:4px 0;">' +
+        kategoriler.map(k => `<span style="background:rgba(168,85,247,0.18);color:#c4b5fd;font-size:0.68em;padding:2px 7px;border-radius:8px;font-weight:600;">${escapeHtml(k)}</span>`).join('') +
+        '</div>';
+}
+
+function turFiltreSec(tur) {
+    aktifTurFiltre = tur;
+    document.querySelectorAll('.tur-filter-btn').forEach(b => b.classList.toggle('active', b.dataset.tur === tur));
+    guncelle();
+}
+
+function kategoriFiltreRowGuncelle() {
+    const row = document.getElementById('kategoriFiltreRow');
+    if (!row) return;
+    // Sadece koleksiyonda gerçekten kullanılan kategorileri göster (boş liste kalabalık yaratmasın)
+    const kullanilanlar = new Set();
+    veriler.forEach(d => (d.kategoriler || []).forEach(k => kullanilanlar.add(k)));
+    if (kullanilanlar.size === 0) { row.innerHTML = ''; return; }
+    row.innerHTML = KATEGORI_LISTESI.filter(k => kullanilanlar.has(k)).map(k => `
+        <button class="filter-btn kategori-filter-btn ${aktifKategoriFiltre.has(k) ? 'active' : ''}" data-kategori="${escapeHtml(k)}" onclick="kategoriFiltreSec('${escapeHtml(k)}')">${escapeHtml(k)}</button>
+    `).join('');
+}
+
+function kategoriFiltreSec(kategori) {
+    if (aktifKategoriFiltre.has(kategori)) aktifKategoriFiltre.delete(kategori);
+    else aktifKategoriFiltre.add(kategori);
+    guncelle();
+}
+
+// ---- ETİKET DÜZENLEME MODALI ----
+function etiketModalAc(id) {
+    const d = veriler.find(x => x.id == id);
+    if (!d) return;
+    etiketDuzenlenenId = id;
+    document.getElementById('tagModalIsim').textContent = d.isim;
+    const secili = new Set(d.kategoriler || []);
+    document.getElementById('tagChipsContainer').innerHTML = KATEGORI_LISTESI.map(k => `
+        <button type="button" class="tag-chip ${secili.has(k) ? 'selected' : ''}" data-kategori="${escapeHtml(k)}" onclick="tagChipToggle(this)">${escapeHtml(k)}</button>
+    `).join('');
+    document.getElementById('tagModal').classList.add('active');
+}
+function tagChipToggle(el) {
+    el.classList.toggle('selected');
+}
+function etiketModalKapat() {
+    document.getElementById('tagModal').classList.remove('active');
+    etiketDuzenlenenId = null;
+}
+function etiketleriKaydet() {
+    if (etiketDuzenlenenId == null) return;
+    const d = veriler.find(x => x.id == etiketDuzenlenenId);
+    if (!d) return;
+    const secilenler = [...document.querySelectorAll('#tagChipsContainer .tag-chip.selected')].map(el => el.dataset.kategori);
+    d.kategoriler = secilenler;
+    kaydet();
+    etiketModalKapat();
+    toast('Etiketler güncellendi ✓');
 }
 
 function puanSecici(id, mevcutPuan) {
@@ -1425,11 +1638,14 @@ function paylasimKapat() {
 }
 
 function kapsamiUygula(scope) {
-    if (scope === 'all') return veriler;
-    if (scope === 'izlendi') return veriler.filter(d => d.durum === 'İzlendi');
-    if (scope === 'izleniyor') return veriler.filter(d => d.durum === 'İzleniyor');
-    if (scope === 'izlenecek') return veriler.filter(d => d.durum === 'İzlenecek');
-    return veriler;
+    let sonuc = veriler;
+    if (scope === 'izlendi') sonuc = sonuc.filter(d => d.durum === 'İzlendi');
+    else if (scope === 'izleniyor') sonuc = sonuc.filter(d => d.durum === 'İzleniyor');
+    else if (scope === 'izlenecek') sonuc = sonuc.filter(d => d.durum === 'İzlenecek');
+
+    const tur = document.getElementById('shareTur') ? document.getElementById('shareTur').value : 'Tümü';
+    if (tur !== 'Tümü') sonuc = sonuc.filter(d => d.tur === tur);
+    return sonuc;
 }
 
 function kartAltYazisi(isim) {
@@ -1499,7 +1715,8 @@ async function kartOlustur() {
         ctx.fillText('🎬 Seyir Defterim', W/2, 90);
         ctx.font = '400 30px Arial';
         ctx.fillStyle = '#c084fc';
-        ctx.fillText(baslikMap[scope] || '', W/2, 132);
+        const turEki = document.getElementById('shareTur').value !== 'Tümü' ? (' • ' + document.getElementById('shareTur').value) : '';
+        ctx.fillText((baslikMap[scope] || '') + turEki, W/2, 132);
         ctx.font = '700 44px Arial';
         ctx.fillStyle = '#a855f7';
         let sayacYazi = items.length + ' yapım';
