@@ -1073,7 +1073,7 @@ let filmSonSayfa = 0;
 function bekle(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 async function tvSayfasiGetir(sayfa) {
-    const cacheAnahtari = 'kesif_tv_sayfa_' + sayfa;
+    const cacheAnahtari = 'kesif_tv_sayfa_v2_' + sayfa;
     const onbellek = apiCacheOku(cacheAnahtari);
     if (onbellek) return onbellek;
     try {
@@ -1099,7 +1099,7 @@ async function tvSayfasiGetir(sayfa) {
 
 async function filmSayfasiGetir(sayfa) {
     if (!tmdbHazir) return [];
-    const cacheAnahtari = 'kesif_film_sayfa_' + sayfa;
+    const cacheAnahtari = 'kesif_film_sayfa_v2_' + sayfa;
     const onbellek = apiCacheOku(cacheAnahtari);
     if (onbellek) return onbellek;
     try {
