@@ -319,7 +319,7 @@
 
     <div class="tabs">
         <button class="tab-btn active" id="tabSearchBtn" onclick="sekmeDegistir('search')" role="tab" aria-selected="true">🔍 Ara & Ekle</button>
-        <button class="tab-btn" id="tabDiscoverBtn" onclick="sekmeDegistir('discover')" role="tab" aria-selected="false">🎬 Ne İzledin?</button>
+        <button class="tab-btn" id="tabDiscoverBtn" onclick="sekmeDegistir('discover')" role="tab" aria-selected="false">🔍 Keşfet</button>
         <button class="tab-btn" id="tabListBtn" onclick="sekmeDegistir('list')" role="tab" aria-selected="false">📋 Koleksiyonum</button>
         <button class="tab-btn" id="tabStatsBtn" onclick="sekmeDegistir('stats')" role="tab" aria-selected="false">📊 İstatistik</button>
     </div>
@@ -339,14 +339,11 @@
     <!-- KEŞİF SEKMESİ -->
     <div id="tabDiscover" class="hidden">
         <div class="discover-section">
-            <div class="discover-title">Ne izledin?</div>
-            <div class="discover-sub">Posterlere dokunarak izlediklerini seç — eklediklerin kaybolur, yerine yenileri gelir</div>
+            <div class="discover-title">Keşfet</div>
+            <div class="discover-sub">Bir postere dokun, detaylarına ve fragmanına bak, istersen koleksiyonuna ekle</div>
             <div class="discover-grid" id="discoverGrid"></div>
             <div style="text-align:center;margin-top:16px;">
                 <button id="dahaFazlaBtn" onclick="kesifManuelDahaFazla()" style="background:rgba(30,25,60,0.55);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:10px 20px;color:#c084fc;font-weight:600;cursor:pointer;">🔄 Daha Fazla Göster</button>
-            </div>
-            <div class="discover-footer">
-                <button class="btn-discover-add" id="discoverAddBtn" onclick="secilenleriEkle()">Seçilenleri Ekle (0)</button>
             </div>
         </div>
     </div>
@@ -502,6 +499,26 @@
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+    <div class="modal-overlay" id="discoverDetailModal" role="dialog" aria-modal="true">
+        <div class="modal" style="max-width:480px;max-height:90vh;overflow-y:auto;padding:0;">
+            <div style="position:relative;">
+                <img id="ddPoster" style="width:100%;aspect-ratio:2/3;object-fit:cover;display:block;background:#2d2b55;">
+                <button onclick="discoverDetayKapat()" aria-label="Kapat" style="position:absolute;top:12px;right:12px;background:rgba(0,0,0,0.55);border:none;color:white;width:36px;height:36px;border-radius:50%;font-size:1.1em;cursor:pointer;backdrop-filter:blur(4px);">✕</button>
+                <span id="ddKategoriRozet" style="position:absolute;top:12px;left:12px;background:rgba(0,0,0,0.6);padding:6px 12px;border-radius:8px;font-size:0.82em;font-weight:700;backdrop-filter:blur(4px);"></span>
+            </div>
+            <div style="padding:20px;">
+                <h3 id="ddIsim" style="font-size:1.25em;margin-bottom:8px;color:#fff;font-weight:800;"></h3>
+                <div id="ddMeta" style="color:#c4b5fd;font-size:0.85em;margin-bottom:14px;font-weight:600;"></div>
+                <div id="ddLoading" style="text-align:center;padding:16px;color:#a99bd6;font-size:0.85em;">Detaylar yükleniyor...</div>
+                <div id="ddOzet" style="font-size:0.88em;line-height:1.6;color:#e0e7ff;margin-bottom:16px;"></div>
+                <div id="ddTrailerWrap" style="display:none;margin-bottom:18px;border-radius:12px;overflow:hidden;aspect-ratio:16/9;background:#000;">
+                    <iframe id="ddTrailerFrame" width="100%" height="100%" style="display:block;border:none;" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                </div>
+                <button id="ddEkleBtn" onclick="discoverDetayEkle()" style="width:100%;padding:14px;border-radius:12px;border:none;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#a855f7,#ec4899);color:white;font-size:0.95em;box-shadow:0 4px 14px rgba(168,85,247,0.35);">➕ Koleksiyonuma Ekle</button>
+            </div>
+        </div>
+    </div>
+
     <div class="modal-overlay" id="tagModal" role="dialog" aria-modal="true">
         <div class="modal" style="max-width:400px;">
             <h3>🏷️ Etiketler</h3>
@@ -570,9 +587,18 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script>
 function verayiDogrula(d) {
-    return d && typeof d.isim === 'string' && d.isim.trim() !== ''
+    const gecerli = d && typeof d.isim === 'string' && d.isim.trim() !== ''
         && ['İzlenecek', 'İzleniyor', 'İzlendi'].includes(d.durum)
         && (typeof d.id === 'number' || typeof d.id === 'string');
+    if (gecerli && !gecerliPosterUrlMu(d.poster)) {
+        d.poster = placeholderUrl(d.isim); // Bozuk/şüpheli poster URL'i (örn. dışarıdan içe aktarılan yedekte) HTML'e basılmadan önce temizle
+    }
+    return gecerli;
+}
+
+function gecerliPosterUrlMu(url) {
+    if (!url) return false;
+    return /^https?:\/\//i.test(url) || /^data:image\//i.test(url);
 }
 
 let veriler = [];
@@ -604,11 +630,21 @@ const firebaseConfig = {
 };
 
 // ---- TMDB (Film desteği) ----
-// Ücretsiz API anahtarını https://www.themoviedb.org/settings/api adresinden al ve buraya yapıştır.
-// Doldurmazsan film araması devre dışı kalır, sadece TVMaze üzerinden dizi araması çalışmaya devam eder.
-const tmdbApiKey = "29cf6a9ad69e74275dbd9279b1cf3013";
-const tmdbHazir = tmdbApiKey && tmdbApiKey !== "SENIN_TMDB_ANAHTARIN";
+// GÜVENLİK: TMDB anahtarı artık burada DEĞİL — sunucu tarafında (Netlify Function) saklanıyor.
+// Tarayıcı sadece kendi sitemizdeki /.netlify/functions/tmdb uç noktasına istek atıyor,
+// o da gerçek TMDB isteğini anahtarla birlikte sunucudan yapıp sonucu bize dönüyor.
+// Netlify'a taşınmadıysan (hâlâ GitHub Pages kullanıyorsan) bu istekler başarısız olur ve
+// uygulama otomatik olarak sadece TVMaze (dizi) sonuçlarıyla çalışmaya devam eder.
+const TMDB_PROXY = '/.netlify/functions/tmdb';
+const tmdbHazir = true; // Sunucu tarafında kurulup kurulmadığını her istek kendi içinde kontrol ediyor
 const TMDB_IMG = "https://image.tmdb.org/t/p/w300";
+
+async function tmdbFetch(endpoint, params) {
+    const qs = new URLSearchParams({ endpoint, ...params }).toString();
+    const res = await fetch(TMDB_PROXY + '?' + qs);
+    if (!res.ok) throw new Error('TMDB proxy hatası: ' + res.status);
+    return res.json();
+}
 
 let firebaseHazir = false;
 let currentUser = null;
@@ -813,6 +849,8 @@ document.addEventListener('keydown', (e) => {
     if (document.getElementById('recommendModal').classList.contains('active')) onerKapat();
     if (document.getElementById('manualModal').classList.contains('active')) manuelEkleKapat();
     if (document.getElementById('authModal').classList.contains('active')) authModuKapat();
+    if (document.getElementById('discoverDetailModal').classList.contains('active')) discoverDetayKapat();
+    if (document.getElementById('tagModal').classList.contains('active')) etiketModalKapat();
     searchResults.classList.remove('active'); searchInput.setAttribute('aria-expanded','false');
 });
 
@@ -900,14 +938,14 @@ async function aramaYap(query) {
             kategori: 'Dizi'
         }));
 
-        // TMDB (filmler) — sadece API anahtarı girildiyse çalışır
+        // TMDB (filmler) — proxy üzerinden, anahtar tarayıcıya hiç gelmiyor
         let filmSonuclari = [];
         if (tmdbHazir) {
             const cacheAnahtariFilm = 'arama_film_' + query.trim().toLocaleLowerCase('tr');
             let filmVeri = apiCacheOku(cacheAnahtariFilm);
             if (!filmVeri) {
                 try {
-                    const res2 = await fetch('https://api.themoviedb.org/3/search/movie?api_key=' + tmdbApiKey + '&query=' + encodeURIComponent(query) + '&language=tr-TR', { signal: buAramaSinyali });
+                    const res2 = await fetch(TMDB_PROXY + '?' + new URLSearchParams({ endpoint: 'search/movie', query: query, language: 'tr-TR' }).toString(), { signal: buAramaSinyali });
                     if (res2.ok) {
                         filmVeri = await res2.json();
                         apiCacheYaz(cacheAnahtariFilm, filmVeri);
@@ -1001,13 +1039,17 @@ function manuelEkleKapat() {
     document.getElementById('mIsim').value = '';
     document.getElementById('mPoster').value = '';
 }
+
 function manuelEkleKaydet() {
     const isim = document.getElementById('mIsim').value.trim();
-    const poster = document.getElementById('mPoster').value.trim();
+    const posterHam = document.getElementById('mPoster').value.trim();
     const tur = document.getElementById('mTur').value;
     if (!isim) { alert('Lütfen bir ad gir'); return; }
     if (listedeVarMi(isim)) { toast(isim + ' zaten listende ✓'); manuelEkleKapat(); return; }
-    const yeni = { id: Date.now()+Math.random(), isim, poster: poster || placeholderUrl(isim), tur, durum: 'İzlenecek', puan: null, kategoriler: [], tarih: new Date().toLocaleDateString('tr-TR') };
+    // Poster alanı serbest metin girişi olduğu için doğrulanmadan HTML'e basılmaması gerekiyor —
+    // geçerli bir http(s)/data URL değilse placeholder'a düş (güvenlik + hatalı girişe karşı koruma)
+    const poster = gecerliPosterUrlMu(posterHam) ? posterHam : placeholderUrl(isim);
+    const yeni = { id: Date.now()+Math.random(), isim, poster, tur, durum: 'İzlenecek', puan: null, kategoriler: [], tarih: new Date().toLocaleDateString('tr-TR') };
     veriler.unshift(yeni);
     kaydet();
     manuelEkleKapat();
@@ -1047,7 +1089,8 @@ async function tvSayfasiGetir(sayfa) {
                 poster: s.image.medium,
                 rating: s.rating && s.rating.average ? s.rating.average : null,
                 imdb: s.externals && s.externals.imdb ? s.externals.imdb : null,
-                kategori: 'Dizi'
+                kategori: 'Dizi',
+                tvId: s.id
             }));
         apiCacheYaz(cacheAnahtari, sonuc);
         return sonuc;
@@ -1060,7 +1103,7 @@ async function filmSayfasiGetir(sayfa) {
     const onbellek = apiCacheOku(cacheAnahtari);
     if (onbellek) return onbellek;
     try {
-        const res = await fetch('https://api.themoviedb.org/3/movie/popular?api_key=' + tmdbApiKey + '&language=tr-TR&page=' + sayfa);
+        const res = await fetch(TMDB_PROXY + '?' + new URLSearchParams({ endpoint: 'movie/popular', language: 'tr-TR', page: sayfa }).toString());
         if (!res.ok) return [];
         const veri = await res.json();
         const sonuc = (veri.results || [])
@@ -1070,7 +1113,8 @@ async function filmSayfasiGetir(sayfa) {
                 poster: TMDB_IMG + f.poster_path,
                 rating: f.vote_average ? Math.round(f.vote_average * 10) / 10 : null,
                 imdb: null,
-                kategori: 'Film'
+                kategori: 'Film',
+                tmdbId: f.id
             }));
         apiCacheYaz(cacheAnahtari, sonuc);
         return sonuc;
@@ -1108,7 +1152,7 @@ async function yukleKesifIzgara() {
                         if (!res.ok) return null;
                         const data = await res.json();
                         if (!data.image) return null;
-                        return { isim: data.name || isim, poster: data.image.medium, rating: data.rating && data.rating.average ? data.rating.average : null, imdb: data.externals && data.externals.imdb ? data.externals.imdb : null, kategori: 'Dizi' };
+                        return { isim: data.name || isim, poster: data.image.medium, rating: data.rating && data.rating.average ? data.rating.average : null, imdb: data.externals && data.externals.imdb ? data.externals.imdb : null, kategori: 'Dizi', tvId: data.id };
                     } catch (e) { return null; }
                 }));
                 sonuclar.push(...grupSonuc.filter(Boolean));
@@ -1179,21 +1223,18 @@ function renderKesifIzgara() {
     }
 
     grid.innerHTML = gosterilecekler.map((item) => `
-        <div class="discover-card" data-key="${escapeHtml(item.isim)}" role="button" tabindex="0" aria-pressed="false">
+        <div class="discover-card" data-key="${escapeHtml(item.isim)}" role="button" tabindex="0">
             <img class="discover-poster" src="${item.poster}" alt="">
             <span class="discover-kategori">${item.kategori === 'Film' ? '🎬' : '📺'}</span>
-            <div class="discover-check">✓</div>
             <div class="discover-name"></div>
         </div>
     `).join('');
     [...grid.querySelectorAll('.discover-card')].forEach((el, i) => {
         const item = gosterilecekler[i];
         el.querySelector('.discover-name').textContent = item.isim;
-        el.classList.toggle('selected', selectedDiscover.has(item.isim));
-        el.setAttribute('aria-pressed', selectedDiscover.has(item.isim) ? 'true' : 'false');
-        el.addEventListener('click', () => toggleDiscoverSelect(item.isim, el));
+        el.addEventListener('click', () => discoverDetayAc(item));
         el.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleDiscoverSelect(item.isim, el); }
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); discoverDetayAc(item); }
         });
     });
 
@@ -1201,46 +1242,105 @@ function renderKesifIzgara() {
     if (gosterilecekler.length < 15) kesifDahaFazlaGetir();
 }
 
-function toggleDiscoverSelect(isim, el) {
-    if (selectedDiscover.has(isim)) {
-        selectedDiscover.delete(isim);
-        el.classList.remove('selected');
-        el.setAttribute('aria-pressed', 'false');
-    } else {
-        selectedDiscover.add(isim);
-        el.classList.add('selected');
-        el.setAttribute('aria-pressed', 'true');
+// ---- KEŞİF DETAY MODALI ----
+let discoverDetayItem = null;
+
+async function discoverDetayAc(item) {
+    discoverDetayItem = item;
+    document.getElementById('discoverDetailModal').classList.add('active');
+    document.getElementById('ddPoster').src = item.poster;
+    document.getElementById('ddIsim').textContent = item.isim;
+    document.getElementById('ddKategoriRozet').textContent = item.kategori === 'Film' ? '🎬 Film' : '📺 Dizi';
+    document.getElementById('ddMeta').textContent = item.rating ? ('⭐ ' + item.rating + '/10') : '';
+    document.getElementById('ddOzet').textContent = '';
+    document.getElementById('ddTrailerFrame').src = '';
+    document.getElementById('ddTrailerWrap').style.display = 'none';
+    document.getElementById('ddLoading').style.display = 'block';
+
+    const ekliMi = listedeVarMi(item.isim);
+    const ekleBtn = document.getElementById('ddEkleBtn');
+    ekleBtn.textContent = ekliMi ? '✓ Zaten Koleksiyonunda' : '➕ Koleksiyonuma Ekle';
+    ekleBtn.disabled = ekliMi;
+    ekleBtn.style.opacity = ekliMi ? '0.5' : '1';
+    ekleBtn.style.cursor = ekliMi ? 'default' : 'pointer';
+
+    try {
+        if (item.kategori === 'Film' && item.tmdbId) {
+            const detay = await tmdbFetch('movie/' + item.tmdbId, { language: 'tr-TR' });
+            const yil = detay.release_date ? detay.release_date.split('-')[0] : null;
+            const sure = detay.runtime ? detay.runtime + ' dk' : null;
+            const puan = detay.vote_average ? Math.round(detay.vote_average * 10) / 10 : item.rating;
+            const turler = (detay.genres || []).map(g => turkceTur(g.name)).slice(0, 3).join(', ');
+            document.getElementById('ddMeta').textContent = [turler, yil, sure, puan ? '⭐ ' + puan : null].filter(Boolean).join(' • ');
+            document.getElementById('ddOzet').textContent = detay.overview || 'Bu içerik için Türkçe özet bulunamadı.';
+
+            // Fragman (TMDB videos uç noktası)
+            try {
+                let videoVeri = await tmdbFetch('movie/' + item.tmdbId + '/videos', { language: 'tr-TR' });
+                let trailer = (videoVeri.results || []).find(v => v.site === 'YouTube' && v.type === 'Trailer');
+                if (!trailer) {
+                    videoVeri = await tmdbFetch('movie/' + item.tmdbId + '/videos', {});
+                    trailer = (videoVeri.results || []).find(v => v.site === 'YouTube' && v.type === 'Trailer') || (videoVeri.results || []).find(v => v.site === 'YouTube');
+                }
+                if (trailer) {
+                    document.getElementById('ddTrailerFrame').src = 'https://www.youtube.com/embed/' + trailer.key;
+                    document.getElementById('ddTrailerWrap').style.display = 'block';
+                }
+            } catch (e) { /* fragman yoksa sorun değil, özet yeterli */ }
+
+        } else if (item.tvId) {
+            const res = await fetch('https://api.tvmaze.com/shows/' + item.tvId);
+            if (res.ok) {
+                const detay = await res.json();
+                const yil = detay.premiered ? detay.premiered.split('-')[0] : null;
+                const sure = detay.averageRuntime ? detay.averageRuntime + ' dk/bölüm' : null;
+                const puan = detay.rating && detay.rating.average ? detay.rating.average : item.rating;
+                const turler = (detay.genres || []).slice(0, 3).join(', ');
+                document.getElementById('ddMeta').textContent = [turler, yil, sure, puan ? '⭐ ' + puan : null].filter(Boolean).join(' • ');
+                const ozetTemiz = (detay.summary || '').replace(/<[^>]+>/g, '');
+                document.getElementById('ddOzet').textContent = ozetTemiz || 'Bu içerik için özet bulunamadı.';
+                // Not: TVMaze fragman sağlamıyor, bu yüzden diziler için fragman bölümü gösterilmiyor
+            } else {
+                document.getElementById('ddOzet').textContent = 'Detaylar yüklenemedi.';
+            }
+        } else {
+            document.getElementById('ddOzet').textContent = 'Bu içerik için ek detay bulunamadı.';
+        }
+    } catch (e) {
+        document.getElementById('ddOzet').textContent = 'Detaylar yüklenirken bir sorun oluştu.';
+    } finally {
+        document.getElementById('ddLoading').style.display = 'none';
     }
-    const btn = document.getElementById('discoverAddBtn');
-    btn.textContent = 'Seçilenleri Ekle (' + selectedDiscover.size + ')';
-    btn.classList.toggle('show', selectedDiscover.size > 0);
 }
 
-function secilenleriEkle() {
-    let eklenen = 0;
-    selectedDiscover.forEach(isim => {
-        const item = discoverItems.find(d => d.isim === isim);
-        if (!item || listedeVarMi(item.isim)) return;
-        eklenen++;
-        veriler.unshift({
-            id: Date.now() + Math.random(),
-            isim: item.isim,
-            poster: item.poster || placeholderUrl(item.isim),
-            tur: item.kategori || 'Dizi',
-            durum: 'İzlendi',
-            puan: null,
-            kategoriler: [],
-            tarih: new Date().toLocaleDateString('tr-TR')
-        });
+function turkceTur(ingilizceIsim) {
+    const harita = { 'Action': 'Aksiyon', 'Adventure': 'Macera', 'Animation': 'Animasyon', 'Comedy': 'Komedi', 'Crime': 'Suç', 'Documentary': 'Belgesel', 'Drama': 'Dram', 'Family': 'Aile', 'Fantasy': 'Fantastik', 'History': 'Tarih', 'Horror': 'Korku', 'Music': 'Müzik', 'Mystery': 'Gizem', 'Romance': 'Romantik', 'Science Fiction': 'Bilim Kurgu', 'Thriller': 'Gerilim', 'War': 'Savaş', 'Western': 'Western' };
+    return harita[ingilizceIsim] || ingilizceIsim;
+}
+
+function discoverDetayKapat() {
+    document.getElementById('discoverDetailModal').classList.remove('active');
+    document.getElementById('ddTrailerFrame').src = ''; // videoyu durdur
+    discoverDetayItem = null;
+}
+
+function discoverDetayEkle() {
+    if (!discoverDetayItem) return;
+    if (listedeVarMi(discoverDetayItem.isim)) { toast('Zaten listende ✓'); return; }
+    veriler.unshift({
+        id: Date.now() + Math.random(),
+        isim: discoverDetayItem.isim,
+        poster: discoverDetayItem.poster || placeholderUrl(discoverDetayItem.isim),
+        tur: discoverDetayItem.kategori || 'Dizi',
+        durum: 'İzlendi',
+        puan: null,
+        kategoriler: [],
+        tarih: new Date().toLocaleDateString('tr-TR')
     });
     kaydet();
-    toast(eklenen + ' içerik eklendi ✓ Yeni öneriler geliyor...');
-    selectedDiscover.clear();
-    document.getElementById('discoverAddBtn').classList.remove('show');
-    document.getElementById('discoverAddBtn').textContent = 'Seçilenleri Ekle (0)';
-    // Eklenenler artık "koleksiyonda" sayıldığı için otomatik olarak ızgaradan düşecek,
-    // yerlerine kalan/yeni gelen içerikler görünecek. Sekme değiştirmeden aynı ekranda kalıyoruz.
-    renderKesifIzgara();
+    toast(discoverDetayItem.isim + ' eklendi ✓');
+    discoverDetayKapat();
+    renderKesifIzgara(); // eklenen kayboldu, yerine yenisi gelsin
 }
 
 // ---- KOLEKSİYON ----
@@ -1683,6 +1783,8 @@ async function posterGorseliYukle(url) {
             img.src = url;
         });
     }
+
+    // 1. Yol: fetch + blob (en güvenilir yöntem, CORS izin veren sunucularda)
     try {
         const res = await fetch(url, { mode: 'cors' });
         if (!res.ok) throw new Error('poster indirilemedi');
@@ -1695,15 +1797,36 @@ async function posterGorseliYukle(url) {
             im.src = blobUrl;
         });
         return { img, blobUrl };
-    } catch (e) {
-        // Yedek yol: doğrudan crossOrigin ile dene, o da olmazsa vazgeç (renkli blok fallback devreye girer)
-        return new Promise((resolve) => {
-            const img = new Image();
-            img.crossOrigin = 'anonymous';
-            img.onload = () => resolve({ img, blobUrl: null });
-            img.onerror = () => resolve(null);
-            img.src = url;
+    } catch (e) { /* 2. yola geç */ }
+
+    // 2. Yol: doğrudan crossOrigin ile dene
+    const dogrudanSonuc = await new Promise((resolve) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => resolve({ img, blobUrl: null });
+        img.onerror = () => resolve(null);
+        img.src = url;
+    });
+    if (dogrudanSonuc) return dogrudanSonuc;
+
+    // 3. Yol: CORS proxy servisi üzerinden dene (TMDB gibi bazı sunucular doğrudan CORS'a izin vermiyor,
+    // bu servis görseli yeniden sunarken gerekli başlığı ekliyor)
+    try {
+        const temizUrl = url.replace(/^https?:\/\//, '');
+        const proxyUrl = 'https://images.weserv.nl/?url=' + encodeURIComponent(temizUrl);
+        const res = await fetch(proxyUrl);
+        if (!res.ok) throw new Error('proxy başarısız');
+        const blob = await res.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const img = await new Promise((resolve, reject) => {
+            const im = new Image();
+            im.onload = () => resolve(im);
+            im.onerror = () => reject(new Error('proxy görseli çözümlenemedi'));
+            im.src = blobUrl;
         });
+        return { img, blobUrl };
+    } catch (e) {
+        return null; // Üç yol da başarısız oldu, çağıran renkli blok fallback'ine düşecek
     }
 }
 
@@ -2034,7 +2157,7 @@ async function onerItemSecildi() {
             recommendData.rating = onbellek.rating || null;
             recommendData.imdb = onbellek.imdb || null;
         } else if (item.tur === 'Film' && tmdbHazir) {
-            const res = await fetch('https://api.themoviedb.org/3/search/movie?api_key=' + tmdbApiKey + '&query=' + encodeURIComponent(item.isim));
+            const res = await fetch(TMDB_PROXY + '?' + new URLSearchParams({ endpoint: 'search/movie', query: item.isim }).toString());
             if (res.ok) {
                 const data = await res.json();
                 const ilkSonuc = data.results && data.results[0];
@@ -2042,7 +2165,7 @@ async function onerItemSecildi() {
                     recommendData.rating = ilkSonuc.vote_average ? Math.round(ilkSonuc.vote_average * 10) / 10 : null;
                     // IMDb ID için filmin detay uç noktasına ayrı bir istek gerekiyor
                     try {
-                        const detayRes = await fetch('https://api.themoviedb.org/3/movie/' + ilkSonuc.id + '?api_key=' + tmdbApiKey);
+                        const detayRes = await fetch(TMDB_PROXY + '?' + new URLSearchParams({ endpoint: 'movie/' + ilkSonuc.id }).toString());
                         if (detayRes.ok) {
                             const detay = await detayRes.json();
                             recommendData.imdb = detay.imdb_id || null;

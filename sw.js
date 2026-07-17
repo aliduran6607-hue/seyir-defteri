@@ -19,9 +19,10 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const url = event.request.url;
-  // Dış API'leri (TVMaze, TMDB, Firebase, Google) hiç önbelleğe alma — tarayıcıya normal şekilde bırak
-  const disaridakiler = ['api.tvmaze.com', 'themoviedb.org', 'image.tmdb.org', 'googleapis.com', 'gstatic.com', 'firebaseio.com', 'firestore.googleapis.com'];
+  // Dış API'leri ve kendi sunucu fonksiyonumuzu (TMDB proxy, canlı/dinamik veri) hiç önbelleğe alma
+  const disaridakiler = ['api.tvmaze.com', 'themoviedb.org', 'image.tmdb.org', 'googleapis.com', 'gstatic.com', 'firebaseio.com', 'firestore.googleapis.com', 'images.weserv.nl'];
   if (disaridakiler.some((d) => url.includes(d))) return;
+  if (url.includes('/.netlify/functions/')) return; // kendi proxy fonksiyonumuz - her zaman taze veri gelsin
   if (event.request.method !== 'GET') return; // sadece GET isteklerini önbellekle, yazma isteklerine dokunma
 
   // Kendi dosyalarımız için: önce ağdan taze sürümü almayı dene, olmazsa önbelleğe düş
