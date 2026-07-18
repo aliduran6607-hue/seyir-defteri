@@ -1245,6 +1245,20 @@ function renderKesifIzgara() {
 // ---- KEŞİF DETAY MODALI ----
 let discoverDetayItem = null;
 
+// TVMaze özetleri her zaman İngilizce geliyor (Türkçe desteği yok) — ücretsiz bir çeviri
+// uç noktasıyla Türkçeye çeviriyoruz. Başarısız olursa orijinal İngilizce metin gösterilir, hata vermez.
+async function ingilizceyiCevir(metin) {
+    if (!metin || !metin.trim()) return metin;
+    try {
+        const res = await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=tr&dt=t&q=' + encodeURIComponent(metin));
+        if (!res.ok) return metin;
+        const data = await res.json();
+        return data[0].map(parca => parca[0]).join('');
+    } catch (e) {
+        return metin; // çeviri başarısız, orijinali göster
+    }
+}
+
 async function discoverDetayAc(item) {
     discoverDetayItem = item;
     document.getElementById('discoverDetailModal').classList.add('active');
@@ -1272,7 +1286,22 @@ async function discoverDetayAc(item) {
             const puan = detay.vote_average ? Math.round(detay.vote_average * 10) / 10 : item.rating;
             const turler = (detay.genres || []).map(g => turkceTur(g.name)).slice(0, 3).join(', ');
             document.getElementById('ddMeta').textContent = [turler, yil, sure, puan ? '⭐ ' + puan : null].filter(Boolean).join(' • ');
-            document.getElementById('ddOzet').textContent = detay.overview || 'Bu içerik için Türkçe özet bulunamadı.';
+            if (detay.overview) {
+                document.getElementById('ddOzet').textContent = detay.overview;
+            } else {
+                // Türkçe özet yoksa İngilizcesini çekip çevir
+                try {
+                    const detayEn = await tmdbFetch('movie/' + item.tmdbId, {});
+                    if (detayEn.overview) {
+                        document.getElementById('ddOzet').textContent = '(çevriliyor...)';
+                        document.getElementById('ddOzet').textContent = await ingilizceyiCevir(detayEn.overview);
+                    } else {
+                        document.getElementById('ddOzet').textContent = 'Bu içerik için özet bulunamadı.';
+                    }
+                } catch (e) {
+                    document.getElementById('ddOzet').textContent = 'Bu içerik için özet bulunamadı.';
+                }
+            }
 
             // Fragman (TMDB videos uç noktası)
             try {
@@ -1288,20 +1317,68 @@ async function discoverDetayAc(item) {
                 }
             } catch (e) { /* fragman yoksa sorun değil, özet yeterli */ }
 
-        } else if (item.tvId) {
-            const res = await fetch('https://api.tvmaze.com/shows/' + item.tvId);
-            if (res.ok) {
-                const detay = await res.json();
-                const yil = detay.premiered ? detay.premiered.split('-')[0] : null;
-                const sure = detay.averageRuntime ? detay.averageRuntime + ' dk/bölüm' : null;
-                const puan = detay.rating && detay.rating.average ? detay.rating.average : item.rating;
-                const turler = (detay.genres || []).slice(0, 3).join(', ');
-                document.getElementById('ddMeta').textContent = [turler, yil, sure, puan ? '⭐ ' + puan : null].filter(Boolean).join(' • ');
-                const ozetTemiz = (detay.summary || '').replace(/<[^>]+>/g, '');
-                document.getElementById('ddOzet').textContent = ozetTemiz || 'Bu içerik için özet bulunamadı.';
-                // Not: TVMaze fragman sağlamıyor, bu yüzden diziler için fragman bölümü gösterilmiyor
-            } else {
-                document.getElementById('ddOzet').textContent = 'Detaylar yüklenemedi.';
+        } else if (item.tvId || item.kategori !== 'Film') {
+            let tmdbBasarili = false;
+
+            // Önce TMDB üzerinden dene — gerçek Türkçe içerik + fragman burada var
+            if (tmdbHazir) {
+                try {
+                    const aramaVeri = await tmdbFetch('search/tv', { query: item.isim, language: 'tr-TR' });
+                    const eslesen = (aramaVeri.results || [])[0];
+                    if (eslesen) {
+                        const detay = await tmdbFetch('tv/' + eslesen.id, { language: 'tr-TR' });
+                        const yil = detay.first_air_date ? detay.first_air_date.split('-')[0] : null;
+                        const sure = (detay.episode_run_time && detay.episode_run_time[0]) ? detay.episode_run_time[0] + ' dk/bölüm' : null;
+                        const puan = detay.vote_average ? Math.round(detay.vote_average * 10) / 10 : item.rating;
+                        const turler = (detay.genres || []).map(g => turkceTur(g.name)).slice(0, 3).join(', ');
+                        document.getElementById('ddMeta').textContent = [turler, yil, sure, puan ? '⭐ ' + puan : null].filter(Boolean).join(' • ');
+
+                        if (detay.overview) {
+                            document.getElementById('ddOzet').textContent = detay.overview;
+                            tmdbBasarili = true;
+                        }
+
+                        // Fragman
+                        try {
+                            let videoVeri = await tmdbFetch('tv/' + eslesen.id + '/videos', { language: 'tr-TR' });
+                            let trailer = (videoVeri.results || []).find(v => v.site === 'YouTube' && v.type === 'Trailer');
+                            if (!trailer) {
+                                videoVeri = await tmdbFetch('tv/' + eslesen.id + '/videos', {});
+                                trailer = (videoVeri.results || []).find(v => v.site === 'YouTube' && v.type === 'Trailer') || (videoVeri.results || []).find(v => v.site === 'YouTube');
+                            }
+                            if (trailer) {
+                                document.getElementById('ddTrailerFrame').src = 'https://www.youtube.com/embed/' + trailer.key;
+                                document.getElementById('ddTrailerWrap').style.display = 'block';
+                            }
+                        } catch (e) { /* fragman bulunamadı, sorun değil */ }
+
+                        tmdbBasarili = tmdbBasarili || true; // meta bilgisi geldiyse de TMDB'yi esas al
+                    }
+                } catch (e) { /* TMDB'de bulunamadı ya da proxy hatası, TVMaze'e düş */ }
+            }
+
+            // TMDB'de bulunamadıysa veya özet boşsa, TVMaze + otomatik çeviriye düş
+            if (!tmdbBasarili && item.tvId) {
+                const res = await fetch('https://api.tvmaze.com/shows/' + item.tvId);
+                if (res.ok) {
+                    const detay = await res.json();
+                    const yil = detay.premiered ? detay.premiered.split('-')[0] : null;
+                    const sure = detay.averageRuntime ? detay.averageRuntime + ' dk/bölüm' : null;
+                    const puan = detay.rating && detay.rating.average ? detay.rating.average : item.rating;
+                    const turler = (detay.genres || []).slice(0, 3).join(', ');
+                    document.getElementById('ddMeta').textContent = [turler, yil, sure, puan ? '⭐ ' + puan : null].filter(Boolean).join(' • ');
+                    const ozetTemiz = (detay.summary || '').replace(/<[^>]+>/g, '');
+                    if (ozetTemiz) {
+                        document.getElementById('ddOzet').textContent = '(çevriliyor...)';
+                        document.getElementById('ddOzet').textContent = await ingilizceyiCevir(ozetTemiz);
+                    } else {
+                        document.getElementById('ddOzet').textContent = 'Bu içerik için özet bulunamadı.';
+                    }
+                } else {
+                    document.getElementById('ddOzet').textContent = 'Detaylar yüklenemedi.';
+                }
+            } else if (!tmdbBasarili) {
+                document.getElementById('ddOzet').textContent = 'Bu içerik için özet bulunamadı.';
             }
         } else {
             document.getElementById('ddOzet').textContent = 'Bu içerik için ek detay bulunamadı.';
