@@ -965,7 +965,7 @@ async function aramaYap(query) {
                 } catch (e) { if (e.name === 'AbortError') throw e; /* TMDB erişilemedi, sadece dizi sonuçlarıyla devam */ }
             }
             filmSonuclari = ((filmVeri && filmVeri.results) || []).slice(0, 6).map(item => ({
-                name: item.title,
+                name: item.original_title || item.title,
                 poster: item.poster_path ? (TMDB_IMG + item.poster_path) : '',
                 yil: item.release_date ? item.release_date.split('-')[0] : '',
                 tur: 'Film',
@@ -1123,7 +1123,7 @@ async function filmSayfasiGetir(sayfa) {
         const sonuc = (veri.results || [])
             .filter(f => f.poster_path)
             .map(f => ({
-                isim: f.title,
+                isim: f.original_title || f.title,
                 poster: TMDB_IMG + f.poster_path,
                 rating: f.vote_average ? Math.round(f.vote_average * 10) / 10 : null,
                 imdb: null,
@@ -1341,7 +1341,7 @@ async function aiFilmAra(isim) {
         const ilk = (data.results || [])[0];
         if (!ilk || !ilk.poster_path) return null;
         return {
-            isim: ilk.title,
+            isim: ilk.original_title || ilk.title,
             poster: TMDB_IMG + ilk.poster_path,
             rating: ilk.vote_average ? Math.round(ilk.vote_average * 10) / 10 : null,
             imdb: null,
