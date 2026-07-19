@@ -1,0 +1,2630 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seyir Defteri - Dizi & Film Takip</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#a855f7">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Seyir Defteri">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+    * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+        background: #0a0a1a;
+        font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        color: #e8e6f5;
+        min-height: 100vh;
+        padding-bottom: 40px;
+        position: relative;
+        -webkit-font-smoothing: antialiased;
+    }
+    #posterBg {
+        position: fixed; inset: 0; z-index: -2;
+        display: flex; flex-wrap: wrap; overflow: hidden;
+        opacity: 0; transition: opacity 1.4s ease;
+    }
+    #posterBg.loaded { opacity: 1; }
+    #posterBg img {
+        width: 12.5%; aspect-ratio: 2/3; object-fit: cover;
+        filter: blur(0.3px) brightness(0.85) saturate(1.1);
+    }
+    #posterBgOverlay {
+        position: fixed; inset: 0; z-index: -1;
+        background: linear-gradient(160deg, rgba(10,10,26,0.72) 0%, rgba(30,20,60,0.68) 45%, rgba(10,10,26,0.82) 100%);
+        backdrop-filter: blur(1px);
+    }
+    .header { padding: 32px 20px 20px; max-width: 1200px; margin: 0 auto; }
+    .header h1 {
+        font-size: 2em;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        background: linear-gradient(135deg, #c084fc, #f472b6 60%, #fb923c);
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+        margin-bottom: 6px;
+        filter: drop-shadow(0 2px 12px rgba(168,85,247,0.35));
+    }
+    .header p { color: #a99bd6; font-size: 0.92em; font-weight: 500; letter-spacing: 0.01em; }
+
+    .tabs { max-width:1200px; margin:0 auto 20px; padding:0 20px; display:flex; gap:8px; flex-wrap:wrap; }
+    .tab-btn {
+        flex:1 1 calc(50% - 8px); min-width:130px; padding:13px 10px; border-radius:14px; border:1px solid rgba(255,255,255,0.08);
+        background: rgba(30,25,60,0.55); color:#b8acd9; cursor:pointer; font-size:0.85em; font-weight:600;
+        backdrop-filter: blur(12px); transition: all 0.25s ease; letter-spacing: 0.01em;
+    }
+    @media (min-width: 560px) { .tab-btn { flex: 1; } }
+    .tab-btn.active {
+        background: linear-gradient(135deg, #a855f7, #ec4899);
+        color:white; border-color: transparent;
+        box-shadow: 0 6px 20px rgba(168,85,247,0.4);
+        transform: translateY(-1px);
+    }
+
+    .search-section { max-width: 1200px; margin: 0 auto 20px; padding: 0 20px; position: relative; }
+    .search-box { display: flex; gap: 10px; }
+    #searchInput {
+        flex: 1; background: rgba(30,25,60,0.55); border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 16px; padding: 15px 20px; color: #fff; font-size: 0.98em;
+        backdrop-filter: blur(12px); font-family: inherit; font-weight: 500;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+        transition: all 0.25s ease;
+    }
+    #searchInput::placeholder { color: #8478a8; }
+    #searchInput:focus { outline:none; border-color:#a855f7; box-shadow: 0 4px 20px rgba(168,85,247,0.25); }
+    .btn-manual {
+        background: linear-gradient(135deg, rgba(168,85,247,0.25), rgba(236,72,153,0.2));
+        border: 1px solid rgba(168,85,247,0.35); border-radius: 16px;
+        width: 52px; height: 52px; flex-shrink: 0;
+        color: #e0c8ff; cursor: pointer; font-size: 1.25em;
+        display: flex; align-items: center; justify-content: center;
+        backdrop-filter: blur(12px); transition: all 0.25s ease;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    }
+    .btn-manual:hover { border-color:#a855f7; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(168,85,247,0.3); }
+
+    .search-results {
+        position: absolute; top: 62px; left: 20px; right: 20px; background: #171233;
+        border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; max-height: 400px;
+        overflow-y: auto; z-index: 50; box-shadow: 0 20px 45px rgba(0,0,0,0.55); display: none;
+        backdrop-filter: blur(16px);
+    }
+    .search-results.active { display: block; }
+    .result-item {
+        display: flex; gap: 12px; padding: 11px 14px; cursor: pointer;
+        border-bottom: 1px solid rgba(255,255,255,0.06); align-items: center;
+    }
+    .result-item:last-child { border-bottom: none; }
+    .result-item:hover { background: rgba(168,85,247,0.12); }
+    .result-item img { width: 42px; height: 60px; object-fit: cover; border-radius: 6px; background: #333; }
+    .result-info { flex: 1; }
+    .result-name { font-weight: 700; font-size: 0.95em; letter-spacing: -0.01em; }
+    .result-meta { font-size: 0.78em; color: #a99bd6; margin-top: 1px; }
+    .result-add { background: linear-gradient(135deg,#a855f7,#8b5cf6); color: white; border: none; border-radius: 8px; padding: 7px 13px; font-size: 0.78em; font-weight:600; cursor: pointer; }
+    .no-results, .loading { padding: 18px; text-align: center; color: #a99bd6; font-size: 0.9em; }
+
+    /* Keşif Grid (Ne izledin?) */
+    .discover-section { max-width:1200px; margin:0 auto 20px; padding:0 20px; }
+    .discover-title { font-size:1.35em; font-weight:800; margin-bottom:4px; letter-spacing:-0.01em; }
+    .discover-sub { color:#a99bd6; font-size:0.85em; margin-bottom:16px; font-weight:500; }
+    .discover-grid {
+        display:grid; grid-template-columns: repeat(auto-fill, minmax(100px,1fr)); gap:12px;
+    }
+    .discover-card { position:relative; cursor:pointer; }
+    .discover-poster {
+        width:100%; aspect-ratio: 2/3; border-radius:12px; object-fit:cover;
+        background:#2d2b55; border: 2px solid transparent; transition: all 0.2s ease;
+        box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+    }
+    .discover-card.selected .discover-poster { border-color:#a855f7; opacity:0.55; }
+    .discover-card.already-added { cursor:default; }
+    .discover-card.already-added .discover-poster { opacity:0.35; filter:grayscale(0.6); }
+    .discover-card.already-added .discover-check { background:rgba(34,197,94,0.85); border-color:#22c55e; display:flex; }
+    .discover-card:not(.already-added) .discover-check { display:none; }
+    .discover-card.selected:not(.already-added) .discover-check { display:flex; }
+    .discover-check {
+        position:absolute; top:8px; right:8px; width:24px; height:24px; border-radius:50%;
+        border:2px solid white; background:rgba(0,0,0,0.4);
+        display:flex; align-items:center; justify-content:center; font-size:0.8em; color:white;
+    }
+    .discover-card.selected .discover-check { background:#a855f7; border-color:#a855f7; }
+    .discover-kategori {
+        position:absolute; top:8px; left:8px; background:rgba(0,0,0,0.55); backdrop-filter:blur(4px);
+        border-radius:6px; width:24px; height:24px; display:flex; align-items:center; justify-content:center; font-size:0.8em;
+    }
+    .discover-name {
+        font-size:0.72em; margin-top:4px; text-align:center; color:#c4b5fd;
+        overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    }
+    .discover-footer {
+        position: sticky; bottom: 12px; margin-top:16px;
+        display:flex; justify-content:center;
+    }
+    .btn-discover-add {
+        background: linear-gradient(135deg, #a855f7, #ec4899); color:white; border:none;
+        padding:14px 28px; border-radius:30px; font-weight:700; cursor:pointer; font-size:0.95em;
+        box-shadow: 0 8px 20px rgba(168,85,247,0.4); display:none;
+    }
+    .btn-discover-add.show { display:block; }
+
+    .stats { max-width: 1200px; margin: 0 auto 20px; padding: 0 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(120px,1fr)); gap: 12px; }
+    .stat-card {
+        background: linear-gradient(150deg, rgba(168,85,247,0.9), rgba(124,58,237,0.85));
+        border-radius: 16px; padding: 16px; text-align: center;
+        border: 1px solid rgba(255,255,255,0.12);
+        box-shadow: 0 8px 24px rgba(124,58,237,0.25);
+        backdrop-filter: blur(8px);
+    }
+    .stat-number { font-size: 1.7em; font-weight: 800; color: white; letter-spacing: -0.02em; }
+    .stat-label { color: #f0e6ff; font-size: 0.76em; margin-top: 3px; font-weight: 500; letter-spacing: 0.02em; }
+
+    .filters { max-width: 1200px; margin: 0 auto 20px; padding: 0 20px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .filter-btn {
+        padding: 9px 18px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1);
+        background: rgba(30,25,60,0.5); color: #b8acd9; cursor: pointer; font-size: 0.85em; font-weight: 600;
+        transition: all 0.2s ease; backdrop-filter: blur(8px);
+    }
+    .filter-btn.active { background: linear-gradient(135deg,#a855f7,#ec4899); color: white; border-color: transparent; box-shadow: 0 4px 14px rgba(168,85,247,0.35); }
+
+    .content { max-width: 1200px; margin: 0 auto; padding: 0 20px; min-height: 200px; }
+    .empty { text-align: center; padding: 60px 20px; color: #9d8fc7; font-weight: 500; }
+
+    .grid-view { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 16px; }
+    .card {
+        background: rgba(25,20,50,0.55); border-radius: 16px; overflow: hidden;
+        border: 1px solid rgba(255,255,255,0.08); transition: all 0.25s ease;
+        backdrop-filter: blur(10px); box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+    }
+    .card:hover { transform: translateY(-5px); border-color:#a855f7; box-shadow: 0 10px 28px rgba(168,85,247,0.25); }
+    .poster-wrap { position: relative; height: 220px; background:#2d2b55; }
+    .poster-wrap img { width:100%; height:100%; object-fit:cover; }
+    .status-tag { position: absolute; top:8px; right:8px; padding: 4px 8px; border-radius: 6px; font-size: 0.7em; font-weight:600; color:white; }
+    .status-izlenecek { background: rgba(107,114,128,0.9); }
+    .status-izleniyor { background: rgba(251,191,36,0.9); color:#1a1a1a; }
+    .status-izlendi { background: rgba(34,197,94,0.9); }
+    .rating-tag {
+        position: absolute; top:8px; left:8px; background: rgba(250,204,21,0.95); color:#1a1a1a;
+        padding: 4px 8px; border-radius: 6px; font-size: 0.7em; font-weight:800;
+    }
+    .rating-select {
+        width:100%; background: rgba(250,204,21,0.12); border:1px solid rgba(250,204,21,0.35);
+        color:#facc15; border-radius:8px; padding:5px; font-size:0.75em; font-weight:600; cursor:pointer;
+    }
+
+    /* İstatistikler */
+    .stat-block {
+        background: rgba(25,20,50,0.55); border:1px solid rgba(255,255,255,0.08); border-radius:16px;
+        padding:18px; margin-bottom:16px; backdrop-filter: blur(10px); box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    }
+    .stat-block-title { font-weight:700; font-size:1em; margin-bottom:14px; letter-spacing:-0.01em; }
+    .stat-bar-row { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+    .stat-bar-row:last-child { margin-bottom:0; }
+    .stat-bar-label { width:90px; flex-shrink:0; font-size:0.82em; color:#c4b5fd; font-weight:600; }
+    .stat-bar-track { flex:1; height:10px; background: rgba(255,255,255,0.07); border-radius:6px; overflow:hidden; }
+    .stat-bar-fill { height:100%; border-radius:6px; transition: width 0.6s ease; }
+    .stat-bar-value { width:28px; text-align:right; font-size:0.82em; font-weight:700; color:#e8e6f5; flex-shrink:0; }
+
+    .histogram { display:flex; align-items:flex-end; gap:6px; height:120px; padding-top:10px; }
+    .hist-bar-wrap { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; }
+    .hist-bar { width:100%; background: linear-gradient(180deg,#facc15,#f59e0b); border-radius:4px 4px 0 0; min-height:2px; transition: height 0.6s ease; }
+    .hist-label { font-size:0.68em; color:#a99bd6; margin-top:4px; font-weight:600; }
+
+    .top-list { display:flex; flex-direction:column; gap:10px; }
+    .top-item { display:flex; align-items:center; gap:12px; }
+    .top-rank { width:22px; text-align:center; font-weight:800; color:#a99bd6; font-size:0.9em; flex-shrink:0; }
+    .top-item img { width:40px; height:58px; object-fit:cover; border-radius:6px; flex-shrink:0; }
+    .top-info { flex:1; min-width:0; }
+    .top-name { font-weight:700; font-size:0.88em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .top-genre { font-size:0.75em; color:#a99bd6; }
+    .top-score { font-weight:800; color:#facc15; font-size:0.9em; flex-shrink:0; }
+    .card-body { padding: 10px; }
+    .card-title { font-size: 0.85em; font-weight:600; margin-bottom:6px; line-height:1.3; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+    .card-controls { display:flex; gap:6px; }
+    .card-controls select { flex:1; background: rgba(71,63,136,0.7); border:1px solid rgba(168,85,247,0.3); color:white; border-radius:6px; padding:4px; font-size:0.72em; }
+    .card-controls button { background: rgba(220,38,38,0.8); border:none; color:white; border-radius:6px; padding:4px 8px; cursor:pointer; font-size:0.72em; }
+
+    .list-view { display:flex; flex-direction:column; gap:10px; }
+    .list-item {
+        background: rgba(25,20,50,0.55); border:1px solid rgba(255,255,255,0.08); border-radius:16px;
+        padding:12px; display:flex; gap:14px; align-items:center;
+        backdrop-filter: blur(10px); box-shadow: 0 4px 16px rgba(0,0,0,0.2); transition: all 0.2s ease;
+    }
+    .list-item:hover { border-color: rgba(168,85,247,0.4); }
+    .list-item img { width:50px; height:74px; object-fit:cover; border-radius:8px; flex-shrink:0; background:#2d2b55; }
+    .list-info { flex:1; }
+    .list-title { font-weight:700; font-size:0.95em; margin-bottom:4px; letter-spacing:-0.01em; }
+    .list-meta { font-size:0.78em; color:#a99bd6; }
+    .list-controls { display:flex; gap:8px; flex-shrink:0; }
+    .list-controls select { background: rgba(71,63,136,0.7); border:1px solid rgba(168,85,247,0.3); color:white; border-radius:8px; padding:6px; font-size:0.78em; }
+    .list-controls button { background: rgba(220,38,38,0.85); border:none; color:white; border-radius:8px; padding:6px 10px; cursor:pointer; font-size:0.78em; }
+
+    .view-toggle { display:flex; gap:6px; margin-bottom:16px; }
+    .view-toggle button {
+        padding: 7px 16px; border-radius:10px; border:1px solid rgba(255,255,255,0.1);
+        background: rgba(30,25,60,0.5); color:#b8acd9; cursor:pointer; font-size:0.85em; font-weight:600;
+        backdrop-filter: blur(8px); transition: all 0.2s ease;
+    }
+    .view-toggle button.active { background: linear-gradient(135deg,#a855f7,#ec4899); color:white; box-shadow: 0 4px 14px rgba(168,85,247,0.3); }
+
+    .modal-overlay { position:fixed; inset:0; background:rgba(5,3,15,0.8); backdrop-filter: blur(4px); display:none; align-items:center; justify-content:center; z-index:100; padding:20px; }
+    .modal-overlay.active { display:flex; }
+    .modal {
+        background: linear-gradient(160deg, #1a1440, #201a4a);
+        border:1px solid rgba(255,255,255,0.1); border-radius:20px; padding:26px; max-width:400px; width:100%;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
+    .modal h3 { margin-bottom:16px; color:#fff; font-weight:800; font-size:1.15em; letter-spacing:-0.01em; }
+    .modal input, .modal select {
+        width:100%; margin-bottom:10px; padding:11px 14px; border-radius:10px;
+        background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); color:white;
+        font-family: inherit; transition: all 0.2s ease;
+    }
+    .modal input:focus, .modal select:focus { outline:none; border-color:#a855f7; background:rgba(255,255,255,0.09); }
+    .modal-buttons { display:flex; gap:8px; margin-top:8px; }
+    .modal-buttons button { flex:1; padding:12px; border-radius:12px; border:none; cursor:pointer; font-weight:700; font-family:inherit; transition: all 0.2s ease; }
+    .btn-cancel { background: rgba(255,255,255,0.08); color:#c4b5fd; }
+    .btn-cancel:hover { background: rgba(255,255,255,0.14); }
+    .btn-save { background: linear-gradient(135deg,#a855f7,#8b5cf6); color:white; box-shadow: 0 4px 14px rgba(168,85,247,0.3); }
+    .btn-save:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(168,85,247,0.4); }
+
+    .rec-tag {
+        background: rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); color:#e0e7ff;
+        padding:9px 15px; border-radius:20px; cursor:pointer; font-size:0.82em; font-weight:600; transition: all 0.2s ease;
+    }
+    .rec-tag.selected { background: linear-gradient(135deg,#f59e0b,#ef4444); border-color:transparent; color:white; box-shadow: 0 4px 14px rgba(239,68,68,0.3); }
+
+    .tag-chip {
+        background: rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); color:#e0e7ff;
+        padding:8px 14px; border-radius:18px; cursor:pointer; font-size:0.8em; font-weight:600; transition: all 0.2s ease;
+    }
+    .tag-chip.selected { background: linear-gradient(135deg,#a855f7,#8b5cf6); border-color:transparent; color:white; box-shadow: 0 4px 14px rgba(168,85,247,0.3); }
+
+    .kategori-filter-btn.active { background: linear-gradient(135deg,#8b5cf6,#a855f7); color:white; border-color:transparent; }
+    .tur-filter-btn.active { background: linear-gradient(135deg,#a855f7,#ec4899); color:white; border-color:transparent; }
+
+    .hidden { display:none !important; }
+    .sr-only {
+        position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden;
+        clip:rect(0,0,0,0); white-space:nowrap; border:0;
+    }
+    .toast {
+        position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+        background: linear-gradient(135deg,#a855f7,#ec4899); color:white; padding:12px 22px; border-radius:24px;
+        font-size:0.85em; font-weight:600; z-index:200; opacity:0; transition: opacity 0.3s, transform 0.3s;
+        pointer-events:none; box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    }
+    .toast.show { opacity:1; transform: translateX(-50%) translateY(-4px); }
+</style>
+</head>
+<body>
+    <div id="posterBg"></div>
+    <div id="posterBgOverlay"></div>
+    <div class="header">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+            <div>
+                <h1>🎬 Seyir Defteri</h1>
+                <p>Dizi ve filmlerini ara, keşfet, takip et</p>
+            </div>
+            <button id="syncBtn" onclick="syncButonTiklandi()" style="background:rgba(30,25,60,0.55);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:8px 12px;color:#a99bd6;font-size:0.75em;font-weight:600;cursor:pointer;white-space:nowrap;backdrop-filter:blur(8px);">
+                ☁️ Hesapsız
+            </button>
+        </div>
+    </div>
+
+    <div class="tabs">
+        <button class="tab-btn active" id="tabSearchBtn" onclick="sekmeDegistir('search')" role="tab" aria-selected="true">🔍 Ara & Ekle</button>
+        <button class="tab-btn" id="tabDiscoverBtn" onclick="sekmeDegistir('discover')" role="tab" aria-selected="false">🔍 Keşfet</button>
+        <button class="tab-btn" id="tabListBtn" onclick="sekmeDegistir('list')" role="tab" aria-selected="false">📋 Koleksiyonum</button>
+        <button class="tab-btn" id="tabStatsBtn" onclick="sekmeDegistir('stats')" role="tab" aria-selected="false">📊 İstatistik</button>
+    </div>
+
+    <!-- ARAMA SEKMESİ -->
+    <div id="tabSearch">
+        <div class="search-section">
+            <label for="searchInput" class="sr-only">Dizi veya film ara</label>
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Dizi ara... (örn: Vikings, Shogun)" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="searchResults">
+                <button class="btn-manual" onclick="manuelEkleAc()" title="Manuel Ekle" aria-label="Manuel Ekle">✏️</button>
+            </div>
+            <div class="search-results" id="searchResults" role="listbox" aria-label="Arama sonuçları"></div>
+        </div>
+
+        <div class="discover-section" style="margin-top:22px;">
+            <div style="display:flex;gap:8px;">
+                <input type="text" id="aiKonuInput" placeholder="🤖 Konu yaz (örn: hapishane kaçışı, aldatma, savaş)" autocomplete="off"
+                    style="flex:1;min-width:0;background:rgba(30,25,60,0.55);border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:14px 16px;color:#fff;font-size:0.9em;">
+                <button onclick="aiKonuAra()" id="aiAraBtn"
+                    style="background:linear-gradient(135deg,#a855f7,#ec4899);border:none;border-radius:16px;padding:0 18px;color:white;font-weight:700;cursor:pointer;white-space:nowrap;font-size:0.88em;">🤖 AI ile Ara</button>
+            </div>
+            <div id="aiSonucBolumu" style="display:none;margin-top:18px;"></div>
+        </div>
+    </div>
+
+    <!-- KEŞİF SEKMESİ -->
+    <div id="tabDiscover" class="hidden">
+        <div class="discover-section">
+            <div class="discover-title">Keşfet</div>
+            <div class="discover-sub">Bir postere dokun, detaylarına ve fragmanına bak, istersen koleksiyonuna ekle</div>
+
+            <div class="discover-grid" id="discoverGrid"></div>
+            <div style="text-align:center;margin-top:16px;">
+                <button id="dahaFazlaBtn" onclick="kesifManuelDahaFazla()" style="background:rgba(30,25,60,0.55);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:10px 20px;color:#c084fc;font-weight:600;cursor:pointer;">🔄 Daha Fazla Göster</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- KOLEKSİYON SEKMESİ -->
+    <div id="tabList" class="hidden">
+        <div class="stats">
+            <div class="stat-card"><div class="stat-number" id="statTotal">0</div><div class="stat-label">Toplam</div></div>
+            <div class="stat-card"><div class="stat-number" id="statTodo">0</div><div class="stat-label">İzlenecek</div></div>
+            <div class="stat-card"><div class="stat-number" id="statWatching">0</div><div class="stat-label">İzleniyor</div></div>
+            <div class="stat-card"><div class="stat-number" id="statDone">0</div><div class="stat-label">İzlendi</div></div>
+        </div>
+        <div class="filters">
+            <button class="filter-btn active" data-filter="Tümü" onclick="filtreSec('Tümü')">Tümü</button>
+            <button class="filter-btn" data-filter="İzlenecek" onclick="filtreSec('İzlenecek')">İzlenecek</button>
+            <button class="filter-btn" data-filter="İzleniyor" onclick="filtreSec('İzleniyor')">İzleniyor</button>
+            <button class="filter-btn" data-filter="İzlendi" onclick="filtreSec('İzlendi')">İzlendi</button>
+            <button class="filter-btn" style="margin-left:auto;background:linear-gradient(135deg,#f59e0b,#ef4444);color:white;border:none;box-shadow:0 4px 14px rgba(239,68,68,0.3);" onclick="onerAc()">🎁 Öner</button>
+            <button class="filter-btn" style="background:linear-gradient(135deg,#a855f7,#ec4899);color:white;border:none;box-shadow:0 4px 14px rgba(168,85,247,0.35);" onclick="paylasimAc()">📤 Paylaş</button>
+        </div>
+        <div class="filters" style="margin-top:-8px;">
+            <button class="filter-btn tur-filter-btn active" data-tur="Tümü" onclick="turFiltreSec('Tümü')">Tümü</button>
+            <button class="filter-btn tur-filter-btn" data-tur="Dizi" onclick="turFiltreSec('Dizi')">📺 Dizi</button>
+            <button class="filter-btn tur-filter-btn" data-tur="Film" onclick="turFiltreSec('Film')">🎬 Film</button>
+        </div>
+        <div class="filters" id="kategoriFiltreRow" style="margin-top:-8px;flex-wrap:wrap;"></div>
+        <div class="filters" style="margin-top:-8px;">
+            <button class="filter-btn" onclick="jsonYedekle()" title="Koleksiyonunu bir dosyaya kaydet">⬇️ Yedekle</button>
+            <button class="filter-btn" onclick="document.getElementById('jsonImportInput').click()" title="Bir yedek dosyasından geri yükle">⬆️ Geri Yükle</button>
+            <input type="file" id="jsonImportInput" accept="application/json" style="display:none;" onchange="jsonGeriYukle(event)">
+        </div>
+        <div class="content">
+            <div class="view-toggle" style="position:relative;">
+                <button class="active" onclick="gorunumDegistir('grid', event)">▦ Grid</button>
+                <button onclick="gorunumDegistir('list', event)">☰ Liste</button>
+                <button id="puanFiltreBtn" onclick="puanFiltrePaneliAcKapa()" style="margin-left:auto;position:relative;" title="Puana göre filtrele">
+                    ⭐ Puan Filtresi <span id="puanFiltreAktifNokta" style="display:none;width:8px;height:8px;border-radius:50%;background:#facc15;position:absolute;top:4px;right:4px;"></span>
+                </button>
+                <div id="puanFiltrePaneli" style="display:none;position:absolute;top:110%;right:0;background:#171233;border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:10px;box-shadow:0 20px 45px rgba(0,0,0,0.5);z-index:40;min-width:200px;">
+                    <button class="puan-filtre-opsiyon" data-puan="tumu" onclick="puanFiltreSec('tumu')" style="display:block;width:100%;text-align:left;background:none;border:none;color:#e0e7ff;padding:9px 10px;border-radius:8px;cursor:pointer;font-size:0.85em;">Tümü</button>
+                    <button class="puan-filtre-opsiyon" data-puan="yok" onclick="puanFiltreSec('yok')" style="display:block;width:100%;text-align:left;background:none;border:none;color:#e0e7ff;padding:9px 10px;border-radius:8px;cursor:pointer;font-size:0.85em;">Puanlanmamış</button>
+                    <button class="puan-filtre-opsiyon" data-puan="10-10" onclick="puanFiltreSec('10-10')" style="display:block;width:100%;text-align:left;background:none;border:none;color:#e0e7ff;padding:9px 10px;border-radius:8px;cursor:pointer;font-size:0.85em;">⭐ 10 (Kusursuz)</button>
+                    <button class="puan-filtre-opsiyon" data-puan="9-9" onclick="puanFiltreSec('9-9')" style="display:block;width:100%;text-align:left;background:none;border:none;color:#e0e7ff;padding:9px 10px;border-radius:8px;cursor:pointer;font-size:0.85em;">⭐ 9 (Mükemmel)</button>
+                    <button class="puan-filtre-opsiyon" data-puan="7-8" onclick="puanFiltreSec('7-8')" style="display:block;width:100%;text-align:left;background:none;border:none;color:#e0e7ff;padding:9px 10px;border-radius:8px;cursor:pointer;font-size:0.85em;">⭐ 7-8 (İyi)</button>
+                    <button class="puan-filtre-opsiyon" data-puan="5-6" onclick="puanFiltreSec('5-6')" style="display:block;width:100%;text-align:left;background:none;border:none;color:#e0e7ff;padding:9px 10px;border-radius:8px;cursor:pointer;font-size:0.85em;">⭐ 5-6 (Orta)</button>
+                    <button class="puan-filtre-opsiyon" data-puan="1-4" onclick="puanFiltreSec('1-4')" style="display:block;width:100%;text-align:left;background:none;border:none;color:#e0e7ff;padding:9px 10px;border-radius:8px;cursor:pointer;font-size:0.85em;">⭐ 1-4 (Düşük)</button>
+                </div>
+            </div>
+            <div id="content"></div>
+        </div>
+    </div>
+
+    <!-- İSTATİSTİK SEKMESİ -->
+    <div id="tabStats" class="hidden">
+        <div class="content" style="padding-top:4px;">
+            <div id="statsContent"></div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="authModal" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+        <div class="modal" style="max-width:380px;">
+            <h3 id="authTitle">Giriş Yap</h3>
+            <p style="color:#a99bd6;font-size:0.85em;margin-bottom:16px;line-height:1.5;">
+                Hesap oluşturursan koleksiyonun tüm cihazlarında senkronize kalır. İstersen hesapsız da devam edebilirsin (veriler sadece bu cihazda kalır).
+            </p>
+            <form id="authForm" onsubmit="event.preventDefault(); girisYap(); return false;" autocomplete="on">
+                <input type="email" id="authEmail" name="email" placeholder="E-posta" autocomplete="email">
+                <input type="password" id="authPassword" name="password" placeholder="Şifre (en az 6 karakter)" autocomplete="current-password">
+                <div id="authError" style="color:#f87171;font-size:0.8em;margin-bottom:10px;display:none;"></div>
+                <div class="modal-buttons">
+                    <button type="button" class="btn-cancel" onclick="authModuKapat()">Hesapsız Devam Et</button>
+                    <button type="submit" class="btn-save" id="authSubmitBtn">Giriş Yap</button>
+                </div>
+            </form>
+            <div style="text-align:center;margin-top:14px;font-size:0.82em;color:#a99bd6;">
+                <span id="authToggleText">Hesabın yok mu?</span>
+                <a href="#" onclick="authModTogl(event)" style="color:#c084fc;font-weight:600;text-decoration:none;">
+                    <span id="authToggleLink">Kayıt Ol</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="manualModal" role="dialog" aria-modal="true">
+        <div class="modal">
+            <h3>Manuel Ekle (Film/Anime/Dizi)</h3>
+            <input type="text" id="mIsim" placeholder="Ad" autocomplete="off">
+            <input type="text" id="mPoster" placeholder="Poster URL (isteğe bağlı)" autocomplete="off">
+            <select id="mTur"><option>Film</option><option>Dizi</option><option>Anime</option></select>
+            <div class="modal-buttons">
+                <button class="btn-cancel" onclick="manuelEkleKapat()">İptal</button>
+                <button class="btn-save" onclick="manuelEkleKaydet()">Ekle</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="shareModal" role="dialog" aria-modal="true">
+        <div class="modal" style="max-width:420px;max-height:88vh;overflow-y:auto;">
+            <h3>Koleksiyonunu Paylaş</h3>
+            <div style="margin-bottom:12px;">
+                <label style="display:block;font-size:0.85em;color:#c084fc;margin-bottom:8px;">Adın (kartın altında görünür)</label>
+                <input type="text" id="shareName" placeholder="örn. Muhammed Ali Duran" autocomplete="off" style="width:100%;padding:10px;border-radius:8px;background:rgba(71,63,136,0.6);border:1px solid rgba(168,85,247,0.3);color:white;">
+            </div>
+            <div style="margin-bottom:14px;">
+                <label style="display:block;font-size:0.85em;color:#c084fc;margin-bottom:8px;">Neyi paylaşmak istiyorsun?</label>
+                <select id="shareScope" style="width:100%;padding:10px;border-radius:8px;background:rgba(71,63,136,0.6);border:1px solid rgba(168,85,247,0.3);color:white;">
+                    <option value="all">Tüm Koleksiyon</option>
+                    <option value="izlendi" selected>Sadece İzlediklerim</option>
+                    <option value="izleniyor">Sadece İzlediklerim (devam eden)</option>
+                    <option value="izlenecek">İzleme Listem</option>
+                </select>
+            </div>
+            <div style="margin-bottom:14px;">
+                <label style="display:block;font-size:0.85em;color:#c084fc;margin-bottom:8px;">Tür</label>
+                <select id="shareTur" style="width:100%;padding:10px;border-radius:8px;background:rgba(71,63,136,0.6);border:1px solid rgba(168,85,247,0.3);color:white;">
+                    <option value="Tümü">Hepsi (Dizi + Film)</option>
+                    <option value="Dizi">📺 Sadece Diziler</option>
+                    <option value="Film">🎬 Sadece Filmler</option>
+                </select>
+            </div>
+            <div style="margin-bottom:14px;">
+                <label style="display:block;font-size:0.85em;color:#c084fc;margin-bottom:8px;">Puan</label>
+                <select id="sharePuan" style="width:100%;padding:10px;border-radius:8px;background:rgba(71,63,136,0.6);border:1px solid rgba(168,85,247,0.3);color:white;">
+                    <option value="tumu">Hepsi (puan farketmez)</option>
+                    <option value="10-10">⭐ Sadece 10 puanlılar</option>
+                    <option value="9-10">⭐ 9-10 puanlılar</option>
+                    <option value="7-10">⭐ 7 ve üzeri</option>
+                    <option value="5-10">⭐ 5 ve üzeri</option>
+                </select>
+            </div>
+            <canvas id="shareCanvas" style="display:none;"></canvas>
+            <div id="sharePreviewWrap" style="display:none;margin-bottom:10px;">
+                <img id="sharePreview" style="width:100%;border-radius:10px;display:block;border:1px solid rgba(168,85,247,0.3);">
+                <div id="pageNav" style="display:none;align-items:center;justify-content:center;gap:14px;margin-top:8px;">
+                    <button onclick="sayfaDegistir(-1)" style="background:rgba(71,63,136,0.6);border:1px solid rgba(168,85,247,0.3);color:white;border-radius:8px;padding:6px 12px;cursor:pointer;">◀</button>
+                    <span id="pageIndicator" style="font-size:0.85em;color:#c084fc;"></span>
+                    <button onclick="sayfaDegistir(1)" style="background:rgba(71,63,136,0.6);border:1px solid rgba(168,85,247,0.3);color:white;border-radius:8px;padding:6px 12px;cursor:pointer;">▶</button>
+                </div>
+            </div>
+            <div id="shareLoading" style="text-align:center;padding:20px;color:#a78bfa;font-size:0.85em;display:none;">Kart hazırlanıyor...</div>
+            <div class="modal-buttons">
+                <button class="btn-cancel" onclick="paylasimKapat()">Kapat</button>
+                <button class="btn-save" onclick="kartOlustur()">Kart Oluştur</button>
+            </div>
+            <div id="shareActions" style="display:none;flex-direction:column;gap:8px;margin-top:12px;">
+                <button class="btn-save" style="background:#25D366;" onclick="whatsappPaylas()">💬 WhatsApp'ta Paylaş</button>
+                <button class="btn-save" onclick="gorseliIndir()">⬇️ Bu Sayfayı İndir</button>
+                <button class="btn-save" id="downloadAllBtn" style="display:none;" onclick="tumSayfalariIndir()">⬇️ Tüm Sayfaları İndir</button>
+                <button class="btn-cancel" onclick="metniKopyala()">📋 Metni Kopyala</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <div class="modal-overlay" id="discoverDetailModal" role="dialog" aria-modal="true">
+        <div class="modal" style="max-width:480px;max-height:90vh;overflow-y:auto;padding:0;">
+            <div style="position:relative;">
+                <img id="ddPoster" style="width:100%;aspect-ratio:2/3;object-fit:cover;display:block;background:#2d2b55;">
+                <button onclick="discoverDetayKapat()" aria-label="Kapat" style="position:absolute;top:12px;right:12px;background:rgba(0,0,0,0.55);border:none;color:white;width:36px;height:36px;border-radius:50%;font-size:1.1em;cursor:pointer;backdrop-filter:blur(4px);">✕</button>
+                <span id="ddKategoriRozet" style="position:absolute;top:12px;left:12px;background:rgba(0,0,0,0.6);padding:6px 12px;border-radius:8px;font-size:0.82em;font-weight:700;backdrop-filter:blur(4px);"></span>
+            </div>
+            <div style="padding:20px;">
+                <h3 id="ddIsim" style="font-size:1.25em;margin-bottom:8px;color:#fff;font-weight:800;"></h3>
+                <div id="ddMeta" style="color:#c4b5fd;font-size:0.85em;margin-bottom:14px;font-weight:600;"></div>
+                <div id="ddLoading" style="text-align:center;padding:16px;color:#a99bd6;font-size:0.85em;">Detaylar yükleniyor...</div>
+                <div id="ddOzet" style="font-size:0.88em;line-height:1.6;color:#e0e7ff;margin-bottom:16px;"></div>
+                <div id="ddTrailerWrap" style="display:none;margin-bottom:18px;border-radius:12px;overflow:hidden;aspect-ratio:16/9;background:#000;">
+                    <iframe id="ddTrailerFrame" width="100%" height="100%" style="display:block;border:none;" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                </div>
+                <button id="ddEkleBtn" onclick="discoverDetayEkle()" style="width:100%;padding:14px;border-radius:12px;border:none;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#a855f7,#ec4899);color:white;font-size:0.95em;box-shadow:0 4px 14px rgba(168,85,247,0.35);">➕ Koleksiyonuma Ekle</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="tagModal" role="dialog" aria-modal="true">
+        <div class="modal" style="max-width:400px;">
+            <h3>🏷️ Etiketler</h3>
+            <p id="tagModalIsim" style="color:#a99bd6;font-size:0.85em;margin-bottom:14px;"></p>
+            <div id="tagChipsContainer" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px;"></div>
+            <div class="modal-buttons">
+                <button class="btn-cancel" onclick="etiketModalKapat()">Kapat</button>
+                <button class="btn-save" onclick="etiketleriKaydet()">Kaydet</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="recommendModal" role="dialog" aria-modal="true">
+        <div class="modal" style="max-width:420px;max-height:88vh;overflow-y:auto;">
+            <h3>Bir Şey Öner</h3>
+            <div style="margin-bottom:12px;">
+                <label style="display:block;font-size:0.85em;color:#c084fc;margin-bottom:8px;">Ne önermek istiyorsun?</label>
+                <select id="recommendItem" style="width:100%;padding:10px;border-radius:8px;background:rgba(71,63,136,0.6);border:1px solid rgba(168,85,247,0.3);color:white;" onchange="onerItemSecildi()">
+                    <option value="">Koleksiyonundan seç...</option>
+                </select>
+            </div>
+            <div id="recommendPreview" style="display:none;margin-bottom:14px;">
+                <div style="display:flex;gap:12px;align-items:center;background:rgba(255,255,255,0.05);border-radius:10px;padding:10px;">
+                    <img id="recPoster" style="width:60px;height:90px;object-fit:cover;border-radius:6px;">
+                    <div style="flex:1;">
+                        <div id="recIsim" style="font-weight:600;margin-bottom:4px;"></div>
+                        <div id="recPuan" style="font-size:0.8em;color:#a78bfa;"></div>
+                        <a id="recImdbLink" href="#" target="_blank" style="font-size:0.8em;color:#f5c518;display:none;">IMDb'de görüntüle ↗</a>
+                    </div>
+                </div>
+            </div>
+            <div style="margin-bottom:12px;">
+                <label style="display:block;font-size:0.85em;color:#c084fc;margin-bottom:8px;">Öneri türü</label>
+                <div id="recTags" style="display:flex;flex-wrap:wrap;gap:8px;">
+                    <button class="rec-tag" data-tag="Şiddetle tavsiye ediyorum">🔥 Şiddetle tavsiye ediyorum</button>
+                    <button class="rec-tag" data-tag="Senin için seçtim">💜 Senin için seçtim</button>
+                    <button class="rec-tag" data-tag="Kesin bunu izle">👀 Kesin bunu izle</button>
+                    <button class="rec-tag" data-tag="Fikrini merak ediyorum">🤔 Fikrini merak ediyorum</button>
+                </div>
+            </div>
+            <div style="margin-bottom:12px;">
+                <label style="display:block;font-size:0.85em;color:#c084fc;margin-bottom:8px;">Not (isteğe bağlı)</label>
+                <textarea id="recNote" rows="3" placeholder="Neden önerdiğini yaz..." style="width:100%;padding:10px;border-radius:8px;background:rgba(71,63,136,0.6);border:1px solid rgba(168,85,247,0.3);color:white;font-family:inherit;resize:vertical;"></textarea>
+            </div>
+            <div style="margin-bottom:12px;">
+                <label style="display:block;font-size:0.85em;color:#c084fc;margin-bottom:8px;">Adın</label>
+                <input type="text" id="recName" placeholder="örn. Muhammed Ali Duran" autocomplete="off" style="width:100%;padding:10px;border-radius:8px;background:rgba(71,63,136,0.6);border:1px solid rgba(168,85,247,0.3);color:white;">
+            </div>
+            <canvas id="recommendCanvas" style="display:none;"></canvas>
+            <img id="recommendPreviewImg" style="width:100%;border-radius:10px;margin-bottom:14px;display:none;border:1px solid rgba(168,85,247,0.3);">
+            <div id="recommendLoading" style="text-align:center;padding:20px;color:#a78bfa;font-size:0.85em;display:none;">Kart hazırlanıyor...</div>
+            <div class="modal-buttons">
+                <button class="btn-cancel" onclick="onerKapat()">Kapat</button>
+                <button class="btn-save" style="background:linear-gradient(135deg,#f59e0b,#ef4444);" onclick="onerKartOlustur()">Kart Oluştur</button>
+            </div>
+            <div id="recommendActions" style="display:none;flex-direction:column;gap:8px;margin-top:12px;">
+                <button class="btn-save" style="background:#25D366;" onclick="onerWhatsapp()">💬 WhatsApp'ta Paylaş</button>
+                <button class="btn-save" onclick="onerIndir()">⬇️ Görseli İndir</button>
+                <button class="btn-cancel" onclick="onerMetniKopyala()">📋 Metni Kopyala</button>
+            </div>
+        </div>
+    </div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+function verayiDogrula(d) {
+    const gecerli = d && typeof d.isim === 'string' && d.isim.trim() !== ''
+        && ['İzlenecek', 'İzleniyor', 'İzlendi'].includes(d.durum)
+        && (typeof d.id === 'number' || typeof d.id === 'string');
+    if (gecerli && !gecerliPosterUrlMu(d.poster)) {
+        d.poster = placeholderUrl(d.isim); // Bozuk/şüpheli poster URL'i (örn. dışarıdan içe aktarılan yedekte) HTML'e basılmadan önce temizle
+    }
+    return gecerli;
+}
+
+function gecerliPosterUrlMu(url) {
+    if (!url) return false;
+    return /^https?:\/\//i.test(url) || /^data:image\//i.test(url);
+}
+
+let veriler = [];
+try {
+    const ham = JSON.parse(localStorage.getItem('watchtrack')) || [];
+    veriler = Array.isArray(ham) ? ham.filter(verayiDogrula) : [];
+} catch(e) { veriler = []; }
+let goruntuleme = 'grid';
+let aktifFiltre = 'Tümü';
+let aktifTurFiltre = 'Tümü';
+let aktifKategoriFiltre = new Set();
+let aktifPuanFiltre = 'tumu';
+let etiketDuzenlenenId = null;
+let aramaTimeout = null;
+let currentResults = [];
+let discoverItems = [];
+let selectedDiscover = new Set();
+
+// ---- BULUT SENKRON (Firebase) ----
+// Kendi ücretsiz Firebase projenin bilgilerini buraya yapıştır (console.firebase.google.com).
+// Doldurmazsan uygulama sorunsuz çalışmaya devam eder, sadece bu cihazda saklar (hesapsız mod).
+const firebaseConfig = {
+    apiKey: "AIzaSyBvK8qbe6TmY7PzeuxcD_f9nhQuZVuARvA",
+    authDomain: "seyir-defterim.firebaseapp.com",
+    projectId: "seyir-defterim",
+    storageBucket: "seyir-defterim.firebasestorage.app",
+    messagingSenderId: "332529308503",
+    appId: "1:332529308503:web:fe50bf2f8bb15223e2a412"
+};
+
+// ---- TMDB (Film desteği) ----
+// GÜVENLİK: TMDB anahtarı artık burada DEĞİL — sunucu tarafında (Netlify Function) saklanıyor.
+// Tarayıcı sadece kendi sitemizdeki /.netlify/functions/tmdb uç noktasına istek atıyor,
+// o da gerçek TMDB isteğini anahtarla birlikte sunucudan yapıp sonucu bize dönüyor.
+// Netlify'a taşınmadıysan (hâlâ GitHub Pages kullanıyorsan) bu istekler başarısız olur ve
+// uygulama otomatik olarak sadece TVMaze (dizi) sonuçlarıyla çalışmaya devam eder.
+const TMDB_PROXY = '/.netlify/functions/tmdb';
+const tmdbHazir = true; // Sunucu tarafında kurulup kurulmadığını her istek kendi içinde kontrol ediyor
+const TMDB_IMG = "https://image.tmdb.org/t/p/w300";
+
+async function tmdbFetch(endpoint, params) {
+    const qs = new URLSearchParams({ endpoint, ...params }).toString();
+    const res = await fetch(TMDB_PROXY + '?' + qs);
+    if (!res.ok) throw new Error('TMDB proxy hatası: ' + res.status);
+    return res.json();
+}
+
+let firebaseHazir = false;
+let currentUser = null;
+let db = null;
+let authModu = 'login';
+let cloudKaydetZamanlayici = null;
+
+function firebaseBaslat() {
+    const yerTutucuMu = !firebaseConfig.apiKey || firebaseConfig.apiKey === 'SENIN_API_KEYIN'
+        || !firebaseConfig.projectId || firebaseConfig.projectId === 'SENIN_PROJEN'
+        || !firebaseConfig.authDomain || firebaseConfig.authDomain === 'SENIN_PROJEN.firebaseapp.com';
+    if (yerTutucuMu) {
+        return; // Henüz kurulmamış, hesapsız modda devam
+    }
+    try {
+        firebase.initializeApp(firebaseConfig);
+        db = firebase.firestore();
+        firebaseHazir = true;
+        firebase.auth().onAuthStateChanged(async (kullanici) => {
+            currentUser = kullanici;
+            const btn = document.getElementById('syncBtn');
+            if (kullanici) {
+                btn.textContent = '☁️ ' + kullanici.email;
+                try {
+                    await bulutVeriYukle();
+                } catch (e) {
+                    console.error('Bulut senkron hatası:', e);
+                    toast('Senkron sırasında sorun oluştu, yerel veriler kullanılıyor');
+                }
+            } else {
+                btn.textContent = '☁️ Hesapsız';
+            }
+        });
+    } catch (e) {
+        console.error('Firebase başlatma hatası:', e);
+    }
+}
+
+function syncButonTiklandi() {
+    if (!firebaseHazir) {
+        toast('Bulut senkronu henüz kurulmadı — kurulum rehberine bak');
+        return;
+    }
+    if (currentUser) {
+        if (confirm('Çıkış yapmak istediğine emin misin? Veriler bu cihazda saklı kalmaya devam eder.')) {
+            firebase.auth().signOut().then(() => {
+                // Bellekteki state'i (önceki hesabın verilerini) tamamen temizlemek için sayfayı yenile.
+                // Böylece başka bir hesapla giriş yapıldığında eski hesabın verileri karışmaz.
+                location.reload();
+            });
+        }
+    } else {
+        document.getElementById('authModal').classList.add('active');
+        document.getElementById('authError').style.display = 'none';
+    }
+}
+
+function authModuKapat() {
+    document.getElementById('authModal').classList.remove('active');
+}
+
+function authModTogl(e) {
+    e.preventDefault();
+    authModu = authModu === 'login' ? 'signup' : 'login';
+    document.getElementById('authTitle').textContent = authModu === 'login' ? 'Giriş Yap' : 'Hesap Oluştur';
+    document.getElementById('authSubmitBtn').textContent = authModu === 'login' ? 'Giriş Yap' : 'Hesap Oluştur';
+    document.getElementById('authToggleText').textContent = authModu === 'login' ? 'Hesabın yok mu?' : 'Zaten hesabın var mı?';
+    document.getElementById('authToggleLink').textContent = authModu === 'login' ? 'Kayıt Ol' : 'Giriş Yap';
+}
+
+async function girisYap() {
+    if (!firebaseHazir) { toast('Bulut senkronu kurulmadı'); return; }
+    const email = document.getElementById('authEmail').value.trim();
+    const sifre = document.getElementById('authPassword').value;
+    const errEl = document.getElementById('authError');
+    errEl.style.display = 'none';
+    if (!email || !sifre) { errEl.textContent = 'E-posta ve şifre gerekli'; errEl.style.display = 'block'; return; }
+    try {
+        if (authModu === 'login') {
+            await firebase.auth().signInWithEmailAndPassword(email, sifre);
+        } else {
+            await firebase.auth().createUserWithEmailAndPassword(email, sifre);
+        }
+        document.getElementById('authModal').classList.remove('active');
+        document.getElementById('authEmail').value = '';
+        document.getElementById('authPassword').value = '';
+        toast('Giriş başarılı ✓');
+    } catch (e) {
+        errEl.textContent = authHataMesaji(e.code);
+        errEl.style.display = 'block';
+    }
+}
+
+function authHataMesaji(kod) {
+    const harita = {
+        'auth/user-not-found': 'Bu e-posta ile kayıtlı hesap yok',
+        'auth/wrong-password': 'Şifre yanlış',
+        'auth/invalid-credential': 'E-posta veya şifre yanlış',
+        'auth/email-already-in-use': 'Bu e-posta zaten kayıtlı, giriş yapmayı dene',
+        'auth/invalid-email': 'Geçersiz e-posta adresi',
+        'auth/weak-password': 'Şifre en az 6 karakter olmalı'
+    };
+    return harita[kod] || 'Bir hata oluştu, tekrar dene';
+}
+
+async function bulutVeriYukle() {
+    if (!currentUser || !db) return;
+    try {
+        const docRef = db.collection('koleksiyonlar').doc(currentUser.uid);
+        const docSnap = await docRef.get();
+        const bulutVeriHam = docSnap.exists ? (docSnap.data().veriler || []) : [];
+        const bulutVeri = Array.isArray(bulutVeriHam) ? bulutVeriHam.filter(verayiDogrula) : [];
+
+        // Bulut ve yerel veriyi BİRLEŞTİR — hiçbiri sessizce silinmesin.
+        // Aynı isimde olanlarda buluttaki sürüm esas alınır (daha güncel kabul edilir),
+        // yerelde olup bulutta olmayanlar (örn. hesapsızken eklenenler) korunarak eklenir.
+        const isimKucuk = s => s.trim().toLocaleLowerCase('tr');
+        const bulutIsimleri = new Set(bulutVeri.map(d => isimKucuk(d.isim)));
+        const sadeceYerelOlanlar = veriler.filter(d => !bulutIsimleri.has(isimKucuk(d.isim)));
+        const birlesmis = [...bulutVeri, ...sadeceYerelOlanlar];
+
+        veriler = birlesmis;
+        try { localStorage.setItem('watchtrack', JSON.stringify(veriler)); } catch(e) {}
+        guncelle();
+        if (!document.getElementById('tabStats').classList.contains('hidden')) renderStats();
+
+        // Birleşmiş sonucu buluta da yaz (yerelde olup buluta hiç gitmemiş olanlar buluta işlensin)
+        if (sadeceYerelOlanlar.length > 0 || !docSnap.exists) {
+            await bulutVeriKaydet();
+        }
+        toast('Bulutla senkronize edildi ☁️' + (sadeceYerelOlanlar.length > 0 ? ' (' + sadeceYerelOlanlar.length + ' yerel içerik eklendi)' : ''));
+    } catch (e) {
+        console.error('Bulut veri yükleme hatası:', e);
+        toast('Bulut verisi yüklenemedi, yerel veriler kullanılıyor');
+    }
+}
+
+function bulutVeriKaydetGecikmeli() {
+    if (!currentUser || !firebaseHazir) return;
+    clearTimeout(cloudKaydetZamanlayici);
+    cloudKaydetZamanlayici = setTimeout(bulutVeriKaydet, 800);
+}
+
+async function bulutVeriKaydet() {
+    if (!currentUser || !firebaseHazir || !db) return;
+    try {
+        await db.collection('koleksiyonlar').doc(currentUser.uid).set({
+            veriler: veriler,
+            guncellendi: new Date().toISOString()
+        });
+    } catch (e) {
+        console.error('Bulut kaydetme hatası:', e);
+    }
+}
+
+
+const searchInput = document.getElementById('searchInput');
+const searchResults = document.getElementById('searchResults');
+
+function sekmeDegistir(tab) {
+    document.getElementById('tabSearch').classList.toggle('hidden', tab !== 'search');
+    document.getElementById('tabDiscover').classList.toggle('hidden', tab !== 'discover');
+    document.getElementById('tabList').classList.toggle('hidden', tab !== 'list');
+    document.getElementById('tabStats').classList.toggle('hidden', tab !== 'stats');
+    document.getElementById('tabSearchBtn').classList.toggle('active', tab === 'search');
+    document.getElementById('tabDiscoverBtn').classList.toggle('active', tab === 'discover');
+    document.getElementById('tabListBtn').classList.toggle('active', tab === 'list');
+    document.getElementById('tabStatsBtn').classList.toggle('active', tab === 'stats');
+    document.getElementById('tabSearchBtn').setAttribute('aria-selected', tab === 'search');
+    document.getElementById('tabDiscoverBtn').setAttribute('aria-selected', tab === 'discover');
+    document.getElementById('tabListBtn').setAttribute('aria-selected', tab === 'list');
+    document.getElementById('tabStatsBtn').setAttribute('aria-selected', tab === 'stats');
+    if (tab === 'discover' && discoverItems.length === 0) yukleKesifIzgara();
+    if (tab === 'list') guncelle();
+    if (tab === 'stats') renderStats();
+}
+
+function toast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+searchInput.addEventListener('input', () => {
+    clearTimeout(aramaTimeout);
+    const q = searchInput.value.trim();
+    if (q.length < 2) { searchResults.classList.remove('active'); searchInput.setAttribute('aria-expanded','false'); return; }
+    aramaTimeout = setTimeout(() => aramaYap(q), 400);
+});
+searchInput.addEventListener('focus', () => {
+    if (currentResults.length > 0 && searchInput.value.trim().length >= 2) {
+        searchResults.classList.add('active'); searchInput.setAttribute('aria-expanded','true');
+    }
+});
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.search-section')) { searchResults.classList.remove('active'); searchInput.setAttribute('aria-expanded','false'); }
+});
+document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (document.getElementById('shareModal').classList.contains('active')) paylasimKapat();
+    if (document.getElementById('recommendModal').classList.contains('active')) onerKapat();
+    if (document.getElementById('manualModal').classList.contains('active')) manuelEkleKapat();
+    if (document.getElementById('authModal').classList.contains('active')) authModuKapat();
+    if (document.getElementById('discoverDetailModal').classList.contains('active')) discoverDetayKapat();
+    if (document.getElementById('tagModal').classList.contains('active')) etiketModalKapat();
+    searchResults.classList.remove('active'); searchInput.setAttribute('aria-expanded','false');
+});
+
+// ---- API ÖNBELLEKLEME (aynı sorguyu tekrar tekrar internete gönderme) ----
+const API_CACHE_TTL = 1000 * 60 * 60 * 24; // 24 saat
+let apiCacheTemizlikSayaci = 0;
+
+function apiCacheOku(anahtar) {
+    try {
+        const ham = localStorage.getItem('apiCache_' + anahtar);
+        if (!ham) return null;
+        const { veri, zaman } = JSON.parse(ham);
+        if (Date.now() - zaman > API_CACHE_TTL) { localStorage.removeItem('apiCache_' + anahtar); return null; }
+        return veri;
+    } catch (e) { return null; }
+}
+function apiCacheYaz(anahtar, veri) {
+    // Her ~20 yazımda bir eski (süresi dolmuş) kayıtları temizle — sürekli taramak yerine ara sıra yapmak daha ucuz
+    apiCacheTemizlikSayaci++;
+    if (apiCacheTemizlikSayaci % 20 === 0) apiCacheEskileriTemizle();
+    try {
+        localStorage.setItem('apiCache_' + anahtar, JSON.stringify({ veri, zaman: Date.now() }));
+    } catch (e) {
+        // Depolama dolu: en eski önbellek kayıtlarından bir kısmını silip tekrar dene
+        apiCacheEnEskileriSil(10);
+        try { localStorage.setItem('apiCache_' + anahtar, JSON.stringify({ veri, zaman: Date.now() })); } catch (e2) { /* olmadıysa vazgeç, kritik değil */ }
+    }
+}
+function apiCacheEskileriTemizle() {
+    const simdi = Date.now();
+    Object.keys(localStorage).forEach(k => {
+        if (!k.startsWith('apiCache_')) return;
+        try {
+            const { zaman } = JSON.parse(localStorage.getItem(k));
+            if (simdi - zaman > API_CACHE_TTL) localStorage.removeItem(k);
+        } catch (e) { localStorage.removeItem(k); /* bozuk kayıt, temizle */ }
+    });
+}
+function apiCacheEnEskileriSil(adet) {
+    const kayitlar = Object.keys(localStorage)
+        .filter(k => k.startsWith('apiCache_'))
+        .map(k => {
+            try { return { k, z: JSON.parse(localStorage.getItem(k)).zaman || 0 }; }
+            catch (e) { return { k, z: 0 }; }
+        })
+        .sort((a, b) => a.z - b.z);
+    kayitlar.slice(0, adet).forEach(kayit => localStorage.removeItem(kayit.k));
+}
+
+function cssEscape(str) {
+    if (typeof CSS !== 'undefined' && CSS.escape) return CSS.escape(str);
+    return String(str).replace(/([!"#$%&'()*+,\-./:;<=>?@[\\\]^`{|}~])/g, '\\$1');
+}
+
+function listedeVarMi(isim) {
+    const temiz = isim.trim().toLocaleLowerCase('tr');
+    return veriler.some(d => d.isim.trim().toLocaleLowerCase('tr') === temiz);
+}
+
+let aramaController = null;
+
+async function aramaYap(query) {
+    // Önceki arama hâlâ sürüyorsa iptal et — yeni yazılan harfler yüzünden eski sonuçlar geç gelip ekranı ezmesin
+    if (aramaController) aramaController.abort();
+    aramaController = new AbortController();
+    const buAramaSinyali = aramaController.signal;
+
+    searchResults.innerHTML = '<div class="loading">Aranıyor...</div>';
+    searchResults.classList.add('active'); searchInput.setAttribute('aria-expanded','true');
+    try {
+        // TVMaze (diziler)
+        const cacheAnahtariDizi = 'arama_dizi_' + query.trim().toLocaleLowerCase('tr');
+        let diziVeri = apiCacheOku(cacheAnahtariDizi);
+        if (!diziVeri) {
+            const res = await fetch('https://api.tvmaze.com/search/shows?q=' + encodeURIComponent(query), { signal: buAramaSinyali });
+            if (!res.ok) throw new Error('API hatası');
+            diziVeri = await res.json();
+            apiCacheYaz(cacheAnahtariDizi, diziVeri);
+        }
+        const diziSonuclari = (diziVeri || []).slice(0, 6).map(item => ({
+            name: item.show.name,
+            poster: item.show.image ? item.show.image.medium : '',
+            yil: item.show.premiered ? item.show.premiered.split('-')[0] : '',
+            tur: (item.show.genres && item.show.genres.length) ? item.show.genres[0] : 'Dizi',
+            kategori: 'Dizi',
+            tvId: item.show.id
+        }));
+
+        // TMDB (filmler) — proxy üzerinden, anahtar tarayıcıya hiç gelmiyor
+        let filmSonuclari = [];
+        if (tmdbHazir) {
+            const cacheAnahtariFilm = 'arama_film_' + query.trim().toLocaleLowerCase('tr');
+            let filmVeri = apiCacheOku(cacheAnahtariFilm);
+            if (!filmVeri) {
+                try {
+                    const res2 = await fetch(TMDB_PROXY + '?' + new URLSearchParams({ endpoint: 'search/movie', query: query, language: 'tr-TR' }).toString(), { signal: buAramaSinyali });
+                    if (res2.ok) {
+                        filmVeri = await res2.json();
+                        apiCacheYaz(cacheAnahtariFilm, filmVeri);
+                    }
+                } catch (e) { if (e.name === 'AbortError') throw e; /* TMDB erişilemedi, sadece dizi sonuçlarıyla devam */ }
+            }
+            filmSonuclari = ((filmVeri && filmVeri.results) || []).slice(0, 6).map(item => ({
+                name: item.title,
+                poster: item.poster_path ? (TMDB_IMG + item.poster_path) : '',
+                yil: item.release_date ? item.release_date.split('-')[0] : '',
+                tur: 'Film',
+                kategori: 'Film',
+                tmdbId: item.id
+            }));
+        }
+
+        currentResults = [...diziSonuclari, ...filmSonuclari];
+        if (currentResults.length === 0) {
+            searchResults.innerHTML = '<div class="no-results">Sonuç bulunamadı. Manuel ekleyebilirsin.</div>';
+            return;
+        }
+        searchResults.innerHTML = currentResults.map((r, idx) => {
+            const ekli = listedeVarMi(r.name);
+            const rozet = r.kategori === 'Film' ? '🎬' : '📺';
+            return `
+            <div class="result-item" data-idx="${idx}" style="${ekli ? 'opacity:0.55;' : ''}">
+                ${r.poster ? `<img src="${r.poster}" alt="">` : '<div style="width:40px;height:58px;background:#333;border-radius:4px;"></div>'}
+                <div class="result-info">
+                    <div class="result-name"></div>
+                    <div class="result-meta">${rozet} <span class="result-meta-text"></span></div>
+                </div>
+                <button class="result-add" ${ekli ? 'disabled style="background:#4b5563;cursor:default;"' : ''}>${ekli ? '✓ Ekli' : '+ Ekle'}</button>
+            </div>
+        `;
+        }).join('');
+        // Metinleri güvenli şekilde ayarla (XSS/tırnak sorunlarını önlemek için)
+        [...searchResults.querySelectorAll('.result-item')].forEach((el, idx) => {
+            el.querySelector('.result-name').textContent = currentResults[idx].name;
+            el.querySelector('.result-meta-text').textContent = currentResults[idx].yil + ' • ' + currentResults[idx].tur;
+            el.addEventListener('click', () => hizliEkle(currentResults[idx]));
+        });
+    } catch (err) {
+        if (err.name === 'AbortError') return; // yeni bir arama başladı, bu eskisi sessizce bırakılıyor
+        searchResults.innerHTML = '<div class="no-results">Arama başarısız oldu. İnternet bağlantını kontrol et veya manuel ekle.</div>';
+        console.error(err);
+    }
+}
+
+// ---- KATEGORİLER (etiketler) ----
+const KATEGORI_LISTESI = ['Polisiye', 'Hapishane', 'Sitcom', 'Bilim Kurgu', 'Tarih', 'Macera', 'Aksiyon', 'Savaş', 'Komedi', 'Dram', 'Romantik', 'Korku', 'Gizem', 'Fantastik', 'Belgesel'];
+
+function hizliEkle(item) {
+    if (listedeVarMi(item.name)) {
+        toast(item.name + ' zaten listende ✓');
+        return;
+    }
+    const yeni = {
+        id: Date.now() + Math.random(),
+        isim: item.name,
+        poster: item.poster || placeholderUrl(item.name),
+        tur: item.kategori || 'Dizi',
+        durum: 'İzlenecek',
+        puan: null,
+        kategoriler: [],
+        tvId: item.tvId || null,
+        tmdbId: item.tmdbId || null,
+        tarih: new Date().toLocaleDateString('tr-TR')
+    };
+    veriler.unshift(yeni);
+    kaydet();
+    searchInput.value = '';
+    searchResults.classList.remove('active'); searchInput.setAttribute('aria-expanded','false');
+    toast(item.name + ' eklendi ✓');
+}
+
+function placeholderUrl(isim) {
+    // Harici servise (via.placeholder.com) bağımlı olmamak için inline SVG data URI kullan
+    const harf = (isim && isim.trim()) ? isim.trim().charAt(0).toUpperCase() : '?';
+    const renkler = ['#a855f7', '#ec4899', '#8b5cf6', '#d946ef', '#7c3aed', '#f59e0b'];
+    let hash = 0;
+    for (let i = 0; i < isim.length; i++) hash = isim.charCodeAt(i) + ((hash << 5) - hash);
+    const renk = renkler[Math.abs(hash) % renkler.length];
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="300">
+        <rect width="200" height="300" fill="${renk}"/>
+        <text x="100" y="165" font-family="Arial" font-size="90" font-weight="700" fill="white" text-anchor="middle">${harf}</text>
+    </svg>`;
+    return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
+}
+
+function manuelEkleAc() { document.getElementById('manualModal').classList.add('active'); }
+function manuelEkleKapat() {
+    document.getElementById('manualModal').classList.remove('active');
+    document.getElementById('mIsim').value = '';
+    document.getElementById('mPoster').value = '';
+}
+
+function manuelEkleKaydet() {
+    const isim = document.getElementById('mIsim').value.trim();
+    const posterHam = document.getElementById('mPoster').value.trim();
+    const tur = document.getElementById('mTur').value;
+    if (!isim) { alert('Lütfen bir ad gir'); return; }
+    if (listedeVarMi(isim)) { toast(isim + ' zaten listende ✓'); manuelEkleKapat(); return; }
+    // Poster alanı serbest metin girişi olduğu için doğrulanmadan HTML'e basılmaması gerekiyor —
+    // geçerli bir http(s)/data URL değilse placeholder'a düş (güvenlik + hatalı girişe karşı koruma)
+    const poster = gecerliPosterUrlMu(posterHam) ? posterHam : placeholderUrl(isim);
+    const yeni = { id: Date.now()+Math.random(), isim, poster, tur, durum: 'İzlenecek', puan: null, kategoriler: [], tarih: new Date().toLocaleDateString('tr-TR') };
+    veriler.unshift(yeni);
+    kaydet();
+    manuelEkleKapat();
+    toast(isim + ' eklendi ✓');
+}
+
+// ---- KEŞİF IZGARASI ----
+// Küçük, güvenilir bir yedek liste (toplu uç noktalar başarısız olursa devreye girer)
+const KESIF_YEDEK_LISTESI = [
+    'Reacher','Chicago Fire','Vikings','Shogun','Medici','The Tudors','Marco Polo',
+    'The Last Kingdom','Peaky Blinders','The Crown','Rome','Spartacus','Narcos',
+    'The Witcher','Money Heist','Dark','Squid Game','Breaking Bad','Better Call Saul',
+    'The Mandalorian','House of the Dragon','Chernobyl','Band of Brothers','Vikings Valhalla'
+];
+
+let kesifYukleniyor = false;
+let kesifYuklendi = false;
+let tvSonSayfa = -1;
+let filmSonSayfa = 0;
+
+function bekle(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function tvSayfasiGetir(sayfa) {
+    const cacheAnahtari = 'kesif_tv_sayfa_v2_' + sayfa;
+    const onbellek = apiCacheOku(cacheAnahtari);
+    if (onbellek) return onbellek;
+    try {
+        const res = await fetch('https://api.tvmaze.com/shows?page=' + sayfa);
+        if (!res.ok) return [];
+        const tumDiziler = await res.json();
+        const sonuc = tumDiziler
+            .filter(s => s.image && s.image.medium)
+            .sort((a, b) => (b.weight || 0) - (a.weight || 0))
+            .slice(0, 36)
+            .map(s => ({
+                isim: s.name,
+                poster: s.image.medium,
+                rating: s.rating && s.rating.average ? s.rating.average : null,
+                imdb: s.externals && s.externals.imdb ? s.externals.imdb : null,
+                kategori: 'Dizi',
+                tvId: s.id
+            }));
+        apiCacheYaz(cacheAnahtari, sonuc);
+        return sonuc;
+    } catch (e) { return []; }
+}
+
+async function filmSayfasiGetir(sayfa) {
+    if (!tmdbHazir) return [];
+    const cacheAnahtari = 'kesif_film_sayfa_v2_' + sayfa;
+    const onbellek = apiCacheOku(cacheAnahtari);
+    if (onbellek) return onbellek;
+    try {
+        const res = await fetch(TMDB_PROXY + '?' + new URLSearchParams({ endpoint: 'movie/popular', language: 'tr-TR', page: sayfa }).toString());
+        if (!res.ok) return [];
+        const veri = await res.json();
+        const sonuc = (veri.results || [])
+            .filter(f => f.poster_path)
+            .map(f => ({
+                isim: f.title,
+                poster: TMDB_IMG + f.poster_path,
+                rating: f.vote_average ? Math.round(f.vote_average * 10) / 10 : null,
+                imdb: null,
+                kategori: 'Film',
+                tmdbId: f.id
+            }));
+        apiCacheYaz(cacheAnahtari, sonuc);
+        return sonuc;
+    } catch (e) { return []; }
+}
+
+function karistir(dizi) {
+    for (let i = dizi.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [dizi[i], dizi[j]] = [dizi[j], dizi[i]];
+    }
+    return dizi;
+}
+
+async function yukleKesifIzgara() {
+    if (kesifYukleniyor || kesifYuklendi) return; // aynı anda birden fazla yükleme başlatma
+    kesifYukleniyor = true;
+    const grid = document.getElementById('discoverGrid');
+    if (discoverItems.length === 0) grid.innerHTML = '<div class="loading">Yükleniyor...</div>';
+    try {
+        tvSonSayfa = 0;
+        filmSonSayfa = 2;
+        const [tvSonuc, film1, film2] = await Promise.all([
+            tvSayfasiGetir(0), filmSayfasiGetir(1), filmSayfasiGetir(2)
+        ]);
+        let sonuclar = [...tvSonuc, ...film1, ...film2];
+
+        // Toplu uçlar tamamen başarısız olduysa (internet/CORS sorunu), küçük yedek listeye düş
+        if (sonuclar.length === 0) {
+            for (let i = 0; i < KESIF_YEDEK_LISTESI.length; i += 4) {
+                const grup = KESIF_YEDEK_LISTESI.slice(i, i + 4);
+                const grupSonuc = await Promise.all(grup.map(async (isim) => {
+                    try {
+                        const res = await fetch('https://api.tvmaze.com/singlesearch/shows?q=' + encodeURIComponent(isim));
+                        if (!res.ok) return null;
+                        const data = await res.json();
+                        if (!data.image) return null;
+                        return { isim: data.name || isim, poster: data.image.medium, rating: data.rating && data.rating.average ? data.rating.average : null, imdb: data.externals && data.externals.imdb ? data.externals.imdb : null, kategori: 'Dizi', tvId: data.id };
+                    } catch (e) { return null; }
+                }));
+                sonuclar.push(...grupSonuc.filter(Boolean));
+                if (i + 4 < KESIF_YEDEK_LISTESI.length) await bekle(250);
+            }
+        }
+
+        discoverItems = karistir(sonuclar);
+        renderKesifIzgara();
+        renderPosterBg(discoverItems.map(d => d.poster));
+        kesifYuklendi = true;
+    } catch (err) {
+        if (discoverItems.length === 0) grid.innerHTML = '<div class="no-results">Yüklenemedi. İnternet bağlantını kontrol et.</div>';
+    } finally {
+        kesifYukleniyor = false;
+    }
+}
+
+let kesifDahaFazlaYukleniyor = false;
+async function kesifDahaFazlaGetir() {
+    if (kesifDahaFazlaYukleniyor) return 0;
+    kesifDahaFazlaYukleniyor = true;
+    try {
+        tvSonSayfa++;
+        filmSonSayfa++;
+        const [tvSonuc, filmSonuc] = await Promise.all([tvSayfasiGetir(tvSonSayfa), filmSayfasiGetir(filmSonSayfa)]);
+        const mevcutIsimler = new Set(discoverItems.map(d => d.isim.trim().toLocaleLowerCase('tr')));
+        const yeniler = [...tvSonuc, ...filmSonuc].filter(item => !mevcutIsimler.has(item.isim.trim().toLocaleLowerCase('tr')));
+        discoverItems.push(...karistir(yeniler));
+        renderKesifIzgara();
+        return yeniler.length;
+    } finally {
+        kesifDahaFazlaYukleniyor = false;
+    }
+}
+
+async function kesifManuelDahaFazla() {
+    const btn = document.getElementById('dahaFazlaBtn');
+    btn.textContent = '⏳ Yükleniyor...';
+    btn.disabled = true;
+    const eklenen = await kesifDahaFazlaGetir();
+    btn.textContent = '🔄 Daha Fazla Göster';
+    btn.disabled = false;
+    if (eklenen === 0) toast('Şu an için yeni içerik bulunamadı, tekrar dene');
+}
+
+function renderPosterBg(posters) {
+    const bg = document.getElementById('posterBg');
+    if (!posters || posters.length === 0) return;
+    const need = 32; // 64'ten düşürüldü: daha az DOM node + daha az HTTP isteği, yine de ekranı kaplayacak kadar
+    let html = '';
+    for (let i = 0; i < need; i++) {
+        html += `<img src="${posters[i % posters.length]}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">`;
+    }
+    bg.innerHTML = html;
+    requestAnimationFrame(() => bg.classList.add('loaded'));
+}
+
+function renderKesifIzgara() {
+    const grid = document.getElementById('discoverGrid');
+    // Zaten koleksiyonda olanları hiç gösterme — sadece henüz izlenmemiş/eklenmemiş içerik kalsın
+    const gosterilecekler = discoverItems.filter(item => !listedeVarMi(item.isim));
+
+    if (gosterilecekler.length === 0) {
+        grid.innerHTML = '<div class="loading">Daha fazla içerik getiriliyor...</div>';
+        kesifDahaFazlaGetir();
+        return;
+    }
+
+    grid.innerHTML = gosterilecekler.map((item) => `
+        <div class="discover-card" data-key="${escapeHtml(item.isim)}" role="button" tabindex="0">
+            <img class="discover-poster" src="${item.poster}" alt="">
+            <span class="discover-kategori">${item.kategori === 'Film' ? '🎬' : '📺'}</span>
+            <div class="discover-name"></div>
+        </div>
+    `).join('');
+    [...grid.querySelectorAll('.discover-card')].forEach((el, i) => {
+        const item = gosterilecekler[i];
+        el.querySelector('.discover-name').textContent = item.isim;
+        el.addEventListener('click', () => discoverDetayAc(item));
+        el.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); discoverDetayAc(item); }
+        });
+    });
+
+    // Havuz azaldıysa sessizce arka planda daha fazlasını getir (kullanıcı fark etmeden hazır olsun)
+    if (gosterilecekler.length < 15) kesifDahaFazlaGetir();
+}
+
+// ---- AI KONU ARA (Gemini) ----
+const AI_CACHE_TTL = 1000 * 60 * 60; // 1 saat
+
+function aiCacheOku(anahtar) {
+    try {
+        const ham = localStorage.getItem('apiCache_' + anahtar);
+        if (!ham) return null;
+        const { veri, zaman } = JSON.parse(ham);
+        if (Date.now() - zaman > AI_CACHE_TTL) { localStorage.removeItem('apiCache_' + anahtar); return null; }
+        return veri;
+    } catch (e) { return null; }
+}
+
+document.getElementById('aiKonuInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); aiKonuAra(); }
+});
+
+async function aiKonuAra() {
+    const konu = document.getElementById('aiKonuInput').value.trim();
+    if (!konu) { toast('Bir konu yaz'); return; }
+
+    const btn = document.getElementById('aiAraBtn');
+    const sonucDiv = document.getElementById('aiSonucBolumu');
+    btn.disabled = true;
+    btn.textContent = '⏳ Aranıyor...';
+    sonucDiv.style.display = 'block';
+    sonucDiv.innerHTML = '<div class="loading">🤖 Gemini konuyu analiz ediyor...</div>';
+
+    try {
+        const cacheAnahtari = 'ai_konu_' + konu.trim().toLocaleLowerCase('tr');
+        let isimler = aiCacheOku(cacheAnahtari);
+        if (!isimler) {
+            const res = await fetch('/.netlify/functions/gemini?' + new URLSearchParams({ konu }).toString());
+            if (!res.ok) throw new Error('gemini hatası');
+            isimler = await res.json();
+            if (isimler.error) throw new Error(isimler.error);
+            apiCacheYaz(cacheAnahtari, isimler);
+        }
+
+        if ((!isimler.diziler || isimler.diziler.length === 0) && (!isimler.filmler || isimler.filmler.length === 0)) {
+            sonucDiv.innerHTML = '<div class="no-results">AI önerisi şu an kullanılamıyor, normal aramayı dene.</div>';
+            return;
+        }
+
+        sonucDiv.innerHTML = '<div class="loading">İçerikler bulunuyor...</div>';
+
+        const [diziSonuclari, filmSonuclari] = await Promise.all([
+            Promise.all((isimler.diziler || []).map(aiDiziAra)),
+            Promise.all((isimler.filmler || []).map(aiFilmAra)),
+        ]);
+
+        aiSonuclariniGoster(diziSonuclari.filter(Boolean), filmSonuclari.filter(Boolean));
+    } catch (e) {
+        console.error(e);
+        sonucDiv.innerHTML = '<div class="no-results">AI önerisi şu an kullanılamıyor, normal aramayı dene.</div>';
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '🤖 AI ile Ara';
+    }
+}
+
+async function aiDiziAra(isim) {
+    try {
+        const res = await fetch('https://api.tvmaze.com/singlesearch/shows?q=' + encodeURIComponent(isim));
+        if (!res.ok) return null;
+        const data = await res.json();
+        if (!data.image) return null;
+        return {
+            isim: data.name,
+            poster: data.image.medium,
+            rating: data.rating && data.rating.average ? data.rating.average : null,
+            imdb: data.externals && data.externals.imdb ? data.externals.imdb : null,
+            kategori: 'Dizi',
+            tvId: data.id,
+        };
+    } catch (e) { return null; }
+}
+
+async function aiFilmAra(isim) {
+    if (!tmdbHazir) return null;
+    try {
+        const data = await tmdbFetch('search/movie', { query: isim, language: 'tr-TR' });
+        const ilk = (data.results || [])[0];
+        if (!ilk || !ilk.poster_path) return null;
+        return {
+            isim: ilk.title,
+            poster: TMDB_IMG + ilk.poster_path,
+            rating: ilk.vote_average ? Math.round(ilk.vote_average * 10) / 10 : null,
+            imdb: null,
+            kategori: 'Film',
+            tmdbId: ilk.id,
+        };
+    } catch (e) { return null; }
+}
+
+function aiSonuclariniGoster(diziler, filmler) {
+    const sonucDiv = document.getElementById('aiSonucBolumu');
+    if (diziler.length === 0 && filmler.length === 0) {
+        sonucDiv.innerHTML = '<div class="no-results">Bu konuyla eşleşen içerik bulunamadı, farklı bir konu dene.</div>';
+        return;
+    }
+
+    function bolumHtml(baslik, liste) {
+        if (liste.length === 0) return '';
+        return `
+            <div style="font-weight:700;margin:14px 0 10px;color:#c4b5fd;font-size:0.92em;">${baslik}</div>
+            <div class="discover-grid">${liste.map(() => `
+                <div class="discover-card ai-sonuc-karti" role="button" tabindex="0">
+                    <img class="discover-poster" alt="">
+                    <span class="discover-kategori"></span>
+                    <div class="discover-name"></div>
+                </div>
+            `).join('')}</div>
+        `;
+    }
+
+    sonucDiv.innerHTML = bolumHtml('📺 Diziler', diziler) + bolumHtml('🎬 Filmler', filmler);
+
+    const tumKartlar = [...sonucDiv.querySelectorAll('.ai-sonuc-karti')];
+    const tumOgeler = [...diziler, ...filmler];
+    tumKartlar.forEach((el, i) => {
+        const item = tumOgeler[i];
+        el.querySelector('.discover-poster').src = item.poster;
+        el.querySelector('.discover-kategori').textContent = item.kategori === 'Film' ? '🎬' : '📺';
+        el.querySelector('.discover-name').textContent = item.isim;
+        el.addEventListener('click', () => discoverDetayAc(item));
+        el.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); discoverDetayAc(item); }
+        });
+    });
+}
+
+// ---- KEŞİF DETAY MODALI ----
+let discoverDetayItem = null;
+
+function koleksiyonDetayAc(id) {
+    const d = veriler.find(x => x.id == id);
+    if (!d) return;
+    discoverDetayAc({
+        isim: d.isim,
+        poster: d.poster,
+        kategori: d.tur,
+        tvId: d.tvId || null,
+        tmdbId: d.tmdbId || null,
+        rating: d.puan || null
+    });
+}
+
+// TVMaze özetleri her zaman İngilizce geliyor (Türkçe desteği yok) — ücretsiz bir çeviri
+// uç noktasıyla Türkçeye çeviriyoruz. Başarısız olursa orijinal İngilizce metin gösterilir, hata vermez.
+async function ingilizceyiCevir(metin) {
+    if (!metin || !metin.trim()) return metin;
+    try {
+        const res = await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=tr&dt=t&q=' + encodeURIComponent(metin));
+        if (!res.ok) return metin;
+        const data = await res.json();
+        return data[0].map(parca => parca[0]).join('');
+    } catch (e) {
+        return metin; // çeviri başarısız, orijinali göster
+    }
+}
+
+async function discoverDetayAc(item) {
+    discoverDetayItem = item;
+    document.getElementById('discoverDetailModal').classList.add('active');
+    document.getElementById('ddPoster').src = item.poster;
+    document.getElementById('ddIsim').textContent = item.isim;
+    document.getElementById('ddKategoriRozet').textContent = item.kategori === 'Film' ? '🎬 Film' : '📺 Dizi';
+    document.getElementById('ddMeta').textContent = item.rating ? ('⭐ ' + item.rating + '/10') : '';
+    document.getElementById('ddOzet').textContent = '';
+    document.getElementById('ddTrailerFrame').src = '';
+    document.getElementById('ddTrailerWrap').style.display = 'none';
+    document.getElementById('ddLoading').style.display = 'block';
+
+    const ekliMi = listedeVarMi(item.isim);
+    const ekleBtn = document.getElementById('ddEkleBtn');
+    ekleBtn.textContent = ekliMi ? '✓ Zaten Koleksiyonunda' : '➕ Koleksiyonuma Ekle';
+    ekleBtn.disabled = ekliMi;
+    ekleBtn.style.opacity = ekliMi ? '0.5' : '1';
+    ekleBtn.style.cursor = ekliMi ? 'default' : 'pointer';
+
+    try {
+        if (item.kategori === 'Film' && !item.tmdbId && tmdbHazir) {
+            try {
+                const arama = await tmdbFetch('search/movie', { query: item.isim, language: 'tr-TR' });
+                if (arama.results && arama.results[0]) item.tmdbId = arama.results[0].id;
+            } catch (e) { /* bulunamadı, aşağıdaki kontrol zaten "bulunamadı" mesajı gösterecek */ }
+        }
+        if (item.kategori === 'Film' && item.tmdbId) {
+            const detay = await tmdbFetch('movie/' + item.tmdbId, { language: 'tr-TR' });
+            const yil = detay.release_date ? detay.release_date.split('-')[0] : null;
+            const sure = detay.runtime ? detay.runtime + ' dk' : null;
+            const puan = detay.vote_average ? Math.round(detay.vote_average * 10) / 10 : item.rating;
+            const turler = (detay.genres || []).map(g => turkceTur(g.name)).slice(0, 3).join(', ');
+            document.getElementById('ddMeta').textContent = [turler, yil, sure, puan ? '⭐ ' + puan : null].filter(Boolean).join(' • ');
+            if (detay.overview) {
+                document.getElementById('ddOzet').textContent = detay.overview;
+            } else {
+                // Türkçe özet yoksa İngilizcesini çekip çevir
+                try {
+                    const detayEn = await tmdbFetch('movie/' + item.tmdbId, {});
+                    if (detayEn.overview) {
+                        document.getElementById('ddOzet').textContent = '(çevriliyor...)';
+                        document.getElementById('ddOzet').textContent = await ingilizceyiCevir(detayEn.overview);
+                    } else {
+                        document.getElementById('ddOzet').textContent = 'Bu içerik için özet bulunamadı.';
+                    }
+                } catch (e) {
+                    document.getElementById('ddOzet').textContent = 'Bu içerik için özet bulunamadı.';
+                }
+            }
+
+            // Fragman (TMDB videos uç noktası)
+            try {
+                let videoVeri = await tmdbFetch('movie/' + item.tmdbId + '/videos', { language: 'tr-TR' });
+                let trailer = (videoVeri.results || []).find(v => v.site === 'YouTube' && v.type === 'Trailer');
+                if (!trailer) {
+                    videoVeri = await tmdbFetch('movie/' + item.tmdbId + '/videos', {});
+                    trailer = (videoVeri.results || []).find(v => v.site === 'YouTube' && v.type === 'Trailer') || (videoVeri.results || []).find(v => v.site === 'YouTube');
+                }
+                if (trailer) {
+                    document.getElementById('ddTrailerFrame').src = 'https://www.youtube.com/embed/' + trailer.key;
+                    document.getElementById('ddTrailerWrap').style.display = 'block';
+                }
+            } catch (e) { /* fragman yoksa sorun değil, özet yeterli */ }
+
+        } else if (item.tvId || item.kategori !== 'Film') {
+            let tmdbBasarili = false;
+
+            // Önce TMDB üzerinden dene — gerçek Türkçe içerik + fragman burada var
+            if (tmdbHazir) {
+                try {
+                    const aramaVeri = await tmdbFetch('search/tv', { query: item.isim, language: 'tr-TR' });
+                    const eslesen = (aramaVeri.results || [])[0];
+                    if (eslesen) {
+                        const detay = await tmdbFetch('tv/' + eslesen.id, { language: 'tr-TR' });
+                        const yil = detay.first_air_date ? detay.first_air_date.split('-')[0] : null;
+                        const sure = (detay.episode_run_time && detay.episode_run_time[0]) ? detay.episode_run_time[0] + ' dk/bölüm' : null;
+                        const puan = detay.vote_average ? Math.round(detay.vote_average * 10) / 10 : item.rating;
+                        const turler = (detay.genres || []).map(g => turkceTur(g.name)).slice(0, 3).join(', ');
+                        document.getElementById('ddMeta').textContent = [turler, yil, sure, puan ? '⭐ ' + puan : null].filter(Boolean).join(' • ');
+
+                        if (detay.overview) {
+                            document.getElementById('ddOzet').textContent = detay.overview;
+                            tmdbBasarili = true;
+                        }
+
+                        // Fragman
+                        try {
+                            let videoVeri = await tmdbFetch('tv/' + eslesen.id + '/videos', { language: 'tr-TR' });
+                            let trailer = (videoVeri.results || []).find(v => v.site === 'YouTube' && v.type === 'Trailer');
+                            if (!trailer) {
+                                videoVeri = await tmdbFetch('tv/' + eslesen.id + '/videos', {});
+                                trailer = (videoVeri.results || []).find(v => v.site === 'YouTube' && v.type === 'Trailer') || (videoVeri.results || []).find(v => v.site === 'YouTube');
+                            }
+                            if (trailer) {
+                                document.getElementById('ddTrailerFrame').src = 'https://www.youtube.com/embed/' + trailer.key;
+                                document.getElementById('ddTrailerWrap').style.display = 'block';
+                            }
+                        } catch (e) { /* fragman bulunamadı, sorun değil */ }
+
+                        tmdbBasarili = tmdbBasarili || true; // meta bilgisi geldiyse de TMDB'yi esas al
+                    }
+                } catch (e) { /* TMDB'de bulunamadı ya da proxy hatası, TVMaze'e düş */ }
+            }
+
+            // TMDB'de bulunamadıysa veya özet boşsa, TVMaze + otomatik çeviriye düş
+            if (!tmdbBasarili && item.tvId) {
+                const res = await fetch('https://api.tvmaze.com/shows/' + item.tvId);
+                if (res.ok) {
+                    const detay = await res.json();
+                    const yil = detay.premiered ? detay.premiered.split('-')[0] : null;
+                    const sure = detay.averageRuntime ? detay.averageRuntime + ' dk/bölüm' : null;
+                    const puan = detay.rating && detay.rating.average ? detay.rating.average : item.rating;
+                    const turler = (detay.genres || []).slice(0, 3).join(', ');
+                    document.getElementById('ddMeta').textContent = [turler, yil, sure, puan ? '⭐ ' + puan : null].filter(Boolean).join(' • ');
+                    const ozetTemiz = (detay.summary || '').replace(/<[^>]+>/g, '');
+                    if (ozetTemiz) {
+                        document.getElementById('ddOzet').textContent = '(çevriliyor...)';
+                        document.getElementById('ddOzet').textContent = await ingilizceyiCevir(ozetTemiz);
+                    } else {
+                        document.getElementById('ddOzet').textContent = 'Bu içerik için özet bulunamadı.';
+                    }
+                } else {
+                    document.getElementById('ddOzet').textContent = 'Detaylar yüklenemedi.';
+                }
+            } else if (!tmdbBasarili) {
+                document.getElementById('ddOzet').textContent = 'Bu içerik için özet bulunamadı.';
+            }
+        } else {
+            document.getElementById('ddOzet').textContent = 'Bu içerik için ek detay bulunamadı.';
+        }
+    } catch (e) {
+        document.getElementById('ddOzet').textContent = 'Detaylar yüklenirken bir sorun oluştu.';
+    } finally {
+        document.getElementById('ddLoading').style.display = 'none';
+    }
+}
+
+function turkceTur(ingilizceIsim) {
+    const harita = { 'Action': 'Aksiyon', 'Adventure': 'Macera', 'Animation': 'Animasyon', 'Comedy': 'Komedi', 'Crime': 'Suç', 'Documentary': 'Belgesel', 'Drama': 'Dram', 'Family': 'Aile', 'Fantasy': 'Fantastik', 'History': 'Tarih', 'Horror': 'Korku', 'Music': 'Müzik', 'Mystery': 'Gizem', 'Romance': 'Romantik', 'Science Fiction': 'Bilim Kurgu', 'Thriller': 'Gerilim', 'War': 'Savaş', 'Western': 'Western' };
+    return harita[ingilizceIsim] || ingilizceIsim;
+}
+
+function discoverDetayKapat() {
+    document.getElementById('discoverDetailModal').classList.remove('active');
+    document.getElementById('ddTrailerFrame').src = ''; // videoyu durdur
+    discoverDetayItem = null;
+}
+
+function discoverDetayEkle() {
+    if (!discoverDetayItem) return;
+    if (listedeVarMi(discoverDetayItem.isim)) { toast('Zaten listende ✓'); return; }
+    veriler.unshift({
+        id: Date.now() + Math.random(),
+        isim: discoverDetayItem.isim,
+        poster: discoverDetayItem.poster || placeholderUrl(discoverDetayItem.isim),
+        tur: discoverDetayItem.kategori || 'Dizi',
+        durum: 'İzlendi',
+        puan: null,
+        kategoriler: [],
+        tvId: discoverDetayItem.tvId || null,
+        tmdbId: discoverDetayItem.tmdbId || null,
+        tarih: new Date().toLocaleDateString('tr-TR')
+    });
+    kaydet();
+    toast(discoverDetayItem.isim + ' eklendi ✓');
+    discoverDetayKapat();
+    renderKesifIzgara(); // eklenen kayboldu, yerine yenisi gelsin
+}
+
+// ---- KOLEKSİYON ----
+function sil(id) {
+    if (confirm('Silmek istediğine emin misin?')) {
+        veriler = veriler.filter(d => d.id != id);
+        kaydet();
+        guncelle();
+    }
+}
+function durumDegistir(id, yeniDurum) {
+    const d = veriler.find(x => x.id == id);
+    if (!d) return;
+    const eskiDurum = d.durum;
+    d.durum = yeniDurum;
+    kaydetSessiz();
+    // Filtre bu değişiklikten etkileniyorsa (öğe filtreden girecek/çıkacaksa) tam yeniden çiz, aksi halde sadece o kartı güncelle
+    if (aktifFiltre !== 'Tümü' && (eskiDurum === aktifFiltre || yeniDurum === aktifFiltre)) {
+        guncelle();
+    } else {
+        statKartlariGuncelle();
+        kartTekilGuncelle(id);
+    }
+}
+function puanDegistir(id, yeniPuan) {
+    const d = veriler.find(x => x.id == id);
+    if (!d) return;
+    d.puan = yeniPuan ? Number(yeniPuan) : null;
+    kaydetSessiz();
+    kartTekilGuncelle(id); // puan hiçbir filtreyi etkilemez, tam yeniden çizim gereksiz
+}
+function filtreSec(f) {
+    aktifFiltre = f;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b.dataset.filter === f));
+    guncelle();
+}
+function gorunumDegistir(tur, e) {
+    goruntuleme = tur;
+    document.querySelectorAll('.view-toggle button').forEach(b => b.classList.remove('active'));
+    e.target.classList.add('active');
+    guncelle();
+}
+function kaydet() {
+    try { localStorage.setItem('watchtrack', JSON.stringify(veriler)); } catch(e) {}
+    bulutVeriKaydetGecikmeli();
+    guncelle();
+}
+
+function kaydetSessiz() {
+    // Tam liste yeniden çizimi yapmadan sadece kalıcı kaydet (durum/puan gibi küçük değişiklikler için)
+    try { localStorage.setItem('watchtrack', JSON.stringify(veriler)); } catch(e) {}
+    bulutVeriKaydetGecikmeli();
+}
+
+function statKartlariGuncelle() {
+    document.getElementById('statTotal').textContent = veriler.length;
+    document.getElementById('statTodo').textContent = veriler.filter(d=>d.durum==='İzlenecek').length;
+    document.getElementById('statWatching').textContent = veriler.filter(d=>d.durum==='İzleniyor').length;
+    document.getElementById('statDone').textContent = veriler.filter(d=>d.durum==='İzlendi').length;
+}
+
+function kartTekilGuncelle(id) {
+    const d = veriler.find(x => x.id == id);
+    if (!d) return;
+    document.querySelectorAll(`[data-id="${cssEscape(String(id))}"]`).forEach(el => {
+        const durumSinifi = d.durum==='İzlenecek'?'izlenecek':d.durum==='İzleniyor'?'izleniyor':'izlendi';
+        const statusTag = el.querySelector('[data-role="status"]');
+        if (statusTag) { statusTag.className = 'status-tag status-' + durumSinifi; statusTag.textContent = d.durum; }
+        const ratingTag = el.querySelector('[data-role="rating"]');
+        if (ratingTag) {
+            ratingTag.style.display = d.puan ? '' : 'none';
+            ratingTag.textContent = d.puan ? ('⭐ ' + d.puan) : '';
+        }
+    });
+}
+
+function guncelle() {
+    statKartlariGuncelle();
+    kategoriFiltreRowGuncelle();
+
+    let gosterilecek = aktifFiltre === 'Tümü' ? veriler : veriler.filter(d => d.durum === aktifFiltre);
+    if (aktifTurFiltre !== 'Tümü') gosterilecek = gosterilecek.filter(d => d.tur === aktifTurFiltre);
+    if (aktifKategoriFiltre.size > 0) gosterilecek = gosterilecek.filter(d => (d.kategoriler || []).some(k => aktifKategoriFiltre.has(k)));
+    if (aktifPuanFiltre !== 'tumu') {
+        if (aktifPuanFiltre === 'yok') gosterilecek = gosterilecek.filter(d => !d.puan);
+        else {
+            const [altSinir, ustSinir] = aktifPuanFiltre.split('-').map(Number);
+            gosterilecek = gosterilecek.filter(d => d.puan && d.puan >= altSinir && d.puan <= ustSinir);
+        }
+    }
+
+    const content = document.getElementById('content');
+    if (!content) return;
+
+    if (gosterilecek.length === 0) {
+        content.innerHTML = '<div class="empty">Bu filtreye uyan bir şey yok. Ara, keşfet veya manuel ekle!</div>';
+        return;
+    }
+
+    if (goruntuleme === 'grid') {
+        content.innerHTML = '<div class="grid-view">' + gosterilecek.map(d => `
+            <div class="card" data-id="${d.id}">
+                <div class="poster-wrap" onclick="koleksiyonDetayAc(${d.id})" style="cursor:pointer;">
+                    <img src="${d.poster}" onerror="this.src='${placeholderUrl(d.isim)}'">
+                    <span class="status-tag status-${d.durum==='İzlenecek'?'izlenecek':d.durum==='İzleniyor'?'izleniyor':'izlendi'}" data-role="status">${d.durum}</span>
+                    <span class="rating-tag" data-role="rating" style="${d.puan ? '' : 'display:none;'}">${d.puan ? '⭐ ' + d.puan : ''}</span>
+                </div>
+                <div class="card-body">
+                    <div class="card-title" onclick="koleksiyonDetayAc(${d.id})" style="cursor:pointer;">${escapeHtml(d.isim)}</div>
+                    ${etiketCipleriGoster(d.kategoriler)}
+                    <div class="card-controls">
+                        <select onchange="durumDegistir(${d.id}, this.value)">
+                            <option ${d.durum==='İzlenecek'?'selected':''}>İzlenecek</option>
+                            <option ${d.durum==='İzleniyor'?'selected':''}>İzleniyor</option>
+                            <option ${d.durum==='İzlendi'?'selected':''}>İzlendi</option>
+                        </select>
+                        <button onclick="sil(${d.id})">🗑️</button>
+                    </div>
+                    <div class="card-controls" style="margin-top:6px;">
+                        ${puanSecici(d.id, d.puan)}
+                        <button onclick="etiketModalAc(${d.id})" title="Etiketleri düzenle" style="background:rgba(168,85,247,0.2);border:1px solid rgba(168,85,247,0.4);color:#c084fc;border-radius:6px;padding:4px 8px;cursor:pointer;">🏷️</button>
+                    </div>
+                </div>
+            </div>
+        `).join('') + '</div>';
+    } else {
+        content.innerHTML = '<div class="list-view">' + gosterilecek.map(d => `
+            <div class="list-item" data-id="${d.id}">
+                <img src="${d.poster}" onerror="this.src='${placeholderUrl(d.isim)}'" onclick="koleksiyonDetayAc(${d.id})" style="cursor:pointer;">
+                <div class="list-info">
+                    <div class="list-title" onclick="koleksiyonDetayAc(${d.id})" style="cursor:pointer;">${escapeHtml(d.isim)} <span class="rating-tag" data-role="rating" style="position:static;display:${d.puan ? 'inline-block' : 'none'};margin-left:6px;">${d.puan ? '⭐ ' + d.puan : ''}</span></div>
+                    <div class="list-meta">${escapeHtml(d.tur)} • ${d.tarih}</div>
+                    ${etiketCipleriGoster(d.kategoriler)}
+                    <div style="margin-top:6px;display:flex;gap:6px;">
+                        ${puanSecici(d.id, d.puan)}
+                        <button onclick="etiketModalAc(${d.id})" title="Etiketleri düzenle" style="background:rgba(168,85,247,0.2);border:1px solid rgba(168,85,247,0.4);color:#c084fc;border-radius:6px;padding:4px 8px;cursor:pointer;flex-shrink:0;">🏷️</button>
+                    </div>
+                </div>
+                <div class="list-controls">
+                    <select onchange="durumDegistir(${d.id}, this.value)">
+                        <option ${d.durum==='İzlenecek'?'selected':''}>İzlenecek</option>
+                        <option ${d.durum==='İzleniyor'?'selected':''}>İzleniyor</option>
+                        <option ${d.durum==='İzlendi'?'selected':''}>İzlendi</option>
+                    </select>
+                    <button onclick="sil(${d.id})">🗑️</button>
+                </div>
+            </div>
+        `).join('') + '</div>';
+    }
+}
+
+function etiketCipleriGoster(kategoriler) {
+    if (!kategoriler || kategoriler.length === 0) return '';
+    return '<div style="display:flex;flex-wrap:wrap;gap:4px;margin:4px 0;">' +
+        kategoriler.map(k => `<span style="background:rgba(168,85,247,0.18);color:#c4b5fd;font-size:0.68em;padding:2px 7px;border-radius:8px;font-weight:600;">${escapeHtml(k)}</span>`).join('') +
+        '</div>';
+}
+
+function turFiltreSec(tur) {
+    aktifTurFiltre = tur;
+    document.querySelectorAll('.tur-filter-btn').forEach(b => b.classList.toggle('active', b.dataset.tur === tur));
+    guncelle();
+}
+
+function kategoriFiltreRowGuncelle() {
+    const row = document.getElementById('kategoriFiltreRow');
+    if (!row) return;
+    // Sadece koleksiyonda gerçekten kullanılan kategorileri göster (boş liste kalabalık yaratmasın)
+    const kullanilanlar = new Set();
+    veriler.forEach(d => (d.kategoriler || []).forEach(k => kullanilanlar.add(k)));
+    if (kullanilanlar.size === 0) { row.innerHTML = ''; return; }
+    row.innerHTML = KATEGORI_LISTESI.filter(k => kullanilanlar.has(k)).map(k => `
+        <button class="filter-btn kategori-filter-btn ${aktifKategoriFiltre.has(k) ? 'active' : ''}" data-kategori="${escapeHtml(k)}" onclick="kategoriFiltreSec('${escapeHtml(k)}')">${escapeHtml(k)}</button>
+    `).join('');
+}
+
+function kategoriFiltreSec(kategori) {
+    if (aktifKategoriFiltre.has(kategori)) aktifKategoriFiltre.delete(kategori);
+    else aktifKategoriFiltre.add(kategori);
+    guncelle();
+}
+
+// ---- PUAN FİLTRESİ ----
+function puanFiltrePaneliAcKapa() {
+    const panel = document.getElementById('puanFiltrePaneli');
+    panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+}
+function puanFiltreSec(deger) {
+    aktifPuanFiltre = deger;
+    document.querySelectorAll('.puan-filtre-opsiyon').forEach(b => {
+        const secili = b.dataset.puan === deger;
+        b.style.background = secili ? 'linear-gradient(135deg,#a855f7,#8b5cf6)' : 'none';
+        b.style.color = secili ? 'white' : '#e0e7ff';
+    });
+    document.getElementById('puanFiltreAktifNokta').style.display = deger === 'tumu' ? 'none' : 'block';
+    document.getElementById('puanFiltrePaneli').style.display = 'none';
+    guncelle();
+}
+document.addEventListener('click', (e) => {
+    const panel = document.getElementById('puanFiltrePaneli');
+    const btn = document.getElementById('puanFiltreBtn');
+    if (panel && panel.style.display === 'block' && !e.target.closest('#puanFiltrePaneli') && !e.target.closest('#puanFiltreBtn')) {
+        panel.style.display = 'none';
+    }
+});
+
+// ---- ETİKET DÜZENLEME MODALI ----
+function etiketModalAc(id) {
+    const d = veriler.find(x => x.id == id);
+    if (!d) return;
+    etiketDuzenlenenId = id;
+    document.getElementById('tagModalIsim').textContent = d.isim;
+    const secili = new Set(d.kategoriler || []);
+    document.getElementById('tagChipsContainer').innerHTML = KATEGORI_LISTESI.map(k => `
+        <button type="button" class="tag-chip ${secili.has(k) ? 'selected' : ''}" data-kategori="${escapeHtml(k)}" onclick="tagChipToggle(this)">${escapeHtml(k)}</button>
+    `).join('');
+    document.getElementById('tagModal').classList.add('active');
+}
+function tagChipToggle(el) {
+    el.classList.toggle('selected');
+}
+function etiketModalKapat() {
+    document.getElementById('tagModal').classList.remove('active');
+    etiketDuzenlenenId = null;
+}
+function etiketleriKaydet() {
+    if (etiketDuzenlenenId == null) return;
+    const d = veriler.find(x => x.id == etiketDuzenlenenId);
+    if (!d) return;
+    const secilenler = [...document.querySelectorAll('#tagChipsContainer .tag-chip.selected')].map(el => el.dataset.kategori);
+    d.kategoriler = secilenler;
+    kaydet();
+    etiketModalKapat();
+    toast('Etiketler güncellendi ✓');
+}
+
+function puanSecici(id, mevcutPuan) {
+    let opts = '<option value="">Puan ver</option>';
+    for (let i = 1; i <= 10; i++) {
+        opts += `<option value="${i}" ${mevcutPuan == i ? 'selected' : ''}>⭐ ${i}</option>`;
+    }
+    return `<select class="rating-select" onchange="puanDegistir(${id}, this.value)">${opts}</select>`;
+}
+
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+// ---- JSON YEDEKLEME / GERİ YÜKLEME ----
+function jsonYedekle() {
+    if (veriler.length === 0) { toast('Yedeklenecek bir şey yok'); return; }
+    const yedek = {
+        uygulama: 'Seyir Defteri',
+        surum: 1,
+        tarih: new Date().toISOString(),
+        veriler: veriler
+    };
+    const blob = new Blob([JSON.stringify(yedek, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'seyir-defteri-yedek-' + new Date().toISOString().split('T')[0] + '.json';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast('Yedek indirildi ✓');
+}
+
+function jsonGeriYukle(event) {
+    const dosya = event.target.files[0];
+    if (!dosya) return;
+    const okuyucu = new FileReader();
+    okuyucu.onload = (e) => {
+        try {
+            const icerik = JSON.parse(e.target.result);
+            const gelenVeriler = Array.isArray(icerik) ? icerik : icerik.veriler;
+            if (!Array.isArray(gelenVeriler)) {
+                toast('Geçersiz yedek dosyası');
+                return;
+            }
+            const gecerliVeriler = gelenVeriler.filter(verayiDogrula);
+            if (gecerliVeriler.length === 0) {
+                toast('Dosyada geçerli veri bulunamadı');
+                return;
+            }
+            const mevcutVarMi = veriler.length > 0;
+            const secim = mevcutVarMi
+                ? confirm(gecerliVeriler.length + ' içerik bulundu.\n\nTAMAM: Mevcut koleksiyona EKLE (tekrarlar atlanır)\nİptal: Mevcut koleksiyonun YERİNE KOY (eskisi silinir)')
+                : true;
+            if (secim && mevcutVarMi) {
+                // Ekle: aynı isimdekiler atlanır
+                let eklenen = 0;
+                gecerliVeriler.forEach(d => {
+                    if (!listedeVarMi(d.isim)) { veriler.push({ ...d, id: Date.now() + Math.random() }); eklenen++; }
+                });
+                toast(eklenen + ' yeni içerik eklendi ✓');
+            } else {
+                veriler = gecerliVeriler.map(d => ({ ...d, id: Date.now() + Math.random() }));
+                toast('Koleksiyon geri yüklendi ✓');
+            }
+            kaydet();
+        } catch (err) {
+            toast('Dosya okunamadı, geçerli bir JSON yedeği mi?');
+            console.error(err);
+        }
+        event.target.value = ''; // aynı dosyayı tekrar seçebilmek için
+    };
+    okuyucu.readAsText(dosya);
+}
+
+// ---- İSTATİSTİKLER ----
+function renderStats() {
+    const container = document.getElementById('statsContent');
+    if (veriler.length === 0) {
+        container.innerHTML = '<div class="empty">Henüz istatistik için yeterli veri yok. Önce birkaç içerik ekle!</div>';
+        return;
+    }
+
+    const toplam = veriler.length;
+    const izlendi = veriler.filter(d => d.durum === 'İzlendi').length;
+    const izleniyor = veriler.filter(d => d.durum === 'İzleniyor').length;
+    const izlenecek = veriler.filter(d => d.durum === 'İzlenecek').length;
+
+    // Puanlanmışlar
+    const puanlilar = veriler.filter(d => d.puan);
+    const ortalamaPuan = puanlilar.length ? (puanlilar.reduce((s,d) => s + d.puan, 0) / puanlilar.length).toFixed(1) : null;
+
+    // Tür dağılımı
+    const turSayilari = {};
+    veriler.forEach(d => { turSayilari[d.tur] = (turSayilari[d.tur] || 0) + 1; });
+    const turRenkleri = { 'Dizi': '#a855f7', 'Film': '#ec4899', 'Anime': '#f59e0b' };
+
+    // Bu ay eklenenler (tarih formatı: gg.aa.yyyy)
+    const simdi = new Date();
+    const buAy = veriler.filter(d => {
+        const parcalar = d.tarih.split('.');
+        if (parcalar.length !== 3) return false;
+        return Number(parcalar[1]) === (simdi.getMonth()+1) && Number(parcalar[2]) === simdi.getFullYear();
+    }).length;
+
+    // Puan histogramı (1-10)
+    const histogram = Array(10).fill(0);
+    puanlilar.forEach(d => { if (d.puan >= 1 && d.puan <= 10) histogram[d.puan-1]++; });
+    const maxHist = Math.max(...histogram, 1);
+
+    // En yüksek puanlı 5 içerik
+    const enYuksek = [...puanlilar].sort((a,b) => b.puan - a.puan).slice(0, 5);
+
+    let html = '';
+
+    // Üst özet kartları
+    html += `<div class="stats" style="margin-bottom:24px;">
+        <div class="stat-card"><div class="stat-number">${toplam}</div><div class="stat-label">Toplam İçerik</div></div>
+        <div class="stat-card"><div class="stat-number">${ortalamaPuan || '—'}</div><div class="stat-label">Ortalama Puanın</div></div>
+        <div class="stat-card"><div class="stat-number">${izlendi}</div><div class="stat-label">İzlendi</div></div>
+        <div class="stat-card"><div class="stat-number">${buAy}</div><div class="stat-label">Bu Ay Eklenen</div></div>
+    </div>`;
+
+    // Durum dağılımı
+    html += `<div class="stat-block">
+        <div class="stat-block-title">📊 Durum Dağılımı</div>
+        ${statBar('İzlendi', izlendi, toplam, '#22c55e')}
+        ${statBar('İzleniyor', izleniyor, toplam, '#facc15')}
+        ${statBar('İzlenecek', izlenecek, toplam, '#6b7280')}
+    </div>`;
+
+    // Tür dağılımı
+    html += `<div class="stat-block">
+        <div class="stat-block-title">🎭 Tür Dağılımı</div>
+        ${Object.entries(turSayilari).map(([tur, sayi]) => statBar(tur, sayi, toplam, turRenkleri[tur] || '#a855f7')).join('')}
+    </div>`;
+
+    // Puan histogramı
+    if (puanlilar.length > 0) {
+        html += `<div class="stat-block">
+            <div class="stat-block-title">⭐ Puan Dağılımı <span style="color:#a99bd6;font-weight:500;font-size:0.8em;">(${puanlilar.length} içerik puanlandı)</span></div>
+            <div class="histogram">
+                ${histogram.map((sayi, i) => `
+                    <div class="hist-bar-wrap">
+                        <div class="hist-bar" style="height:${sayi ? Math.max((sayi/maxHist)*100, 8) : 2}%"></div>
+                        <div class="hist-label">${i+1}</div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>`;
+    }
+
+    // En yüksek puanlılar
+    if (enYuksek.length > 0) {
+        html += `<div class="stat-block">
+            <div class="stat-block-title">🏆 En Yüksek Puan Verdiklerin</div>
+            <div class="top-list">
+                ${enYuksek.map((d, i) => `
+                    <div class="top-item">
+                        <span class="top-rank">${i+1}</span>
+                        <img src="${d.poster}" onerror="this.src='${placeholderUrl(d.isim)}'">
+                        <div class="top-info">
+                            <div class="top-name">${escapeHtml(d.isim)}</div>
+                            <div class="top-genre">${escapeHtml(d.tur)}</div>
+                        </div>
+                        <div class="top-score">⭐ ${d.puan}</div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>`;
+    } else {
+        html += `<div class="stat-block">
+            <div class="stat-block-title">🏆 En Yüksek Puan Verdiklerin</div>
+            <div style="color:#a99bd6;font-size:0.85em;padding:8px 0;">Henüz hiçbir içeriğe puan vermedin. Koleksiyonundan bir şeye ⭐ puan ver, burada görünsün.</div>
+        </div>`;
+    }
+
+    container.innerHTML = html;
+}
+
+function statBar(etiket, sayi, toplam, renk) {
+    const yuzde = toplam > 0 ? (sayi / toplam) * 100 : 0;
+    return `
+        <div class="stat-bar-row">
+            <div class="stat-bar-label">${etiket}</div>
+            <div class="stat-bar-track"><div class="stat-bar-fill" style="width:${yuzde}%;background:${renk};"></div></div>
+            <div class="stat-bar-value">${sayi}</div>
+        </div>
+    `;
+}
+
+// ---- PAYLAŞIM ----
+
+// Poster görsellerini canvas'a çizebilmek için önce fetch+blob ile indirip yerel blob URL'e çeviriyoruz.
+// Bu yöntem, doğrudan <img crossOrigin> ile yüklemeye göre çok daha güvenilir çalışıyor
+// (bazı CDN'ler crossOrigin='anonymous' isteğini reddediyor ama normal fetch isteğine izin veriyor).
+async function posterGorseliYukle(url) {
+    if (!url || url.startsWith('data:')) {
+        // Zaten yerel/inline bir görsel (SVG placeholder gibi) — doğrudan yükle, fetch'e gerek yok
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => resolve({ img, blobUrl: null });
+            img.onerror = () => resolve(null);
+            img.src = url;
+        });
+    }
+
+    // 1. Yol: fetch + blob (en güvenilir yöntem, CORS izin veren sunucularda)
+    try {
+        const res = await fetch(url, { mode: 'cors' });
+        if (!res.ok) throw new Error('poster indirilemedi');
+        const blob = await res.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const img = await new Promise((resolve, reject) => {
+            const im = new Image();
+            im.onload = () => resolve(im);
+            im.onerror = () => reject(new Error('görsel çözümlenemedi'));
+            im.src = blobUrl;
+        });
+        return { img, blobUrl };
+    } catch (e) { /* 2. yola geç */ }
+
+    // 2. Yol: doğrudan crossOrigin ile dene
+    const dogrudanSonuc = await new Promise((resolve) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => resolve({ img, blobUrl: null });
+        img.onerror = () => resolve(null);
+        img.src = url;
+    });
+    if (dogrudanSonuc) return dogrudanSonuc;
+
+    // 3. Yol: CORS proxy servisi üzerinden dene (TMDB gibi bazı sunucular doğrudan CORS'a izin vermiyor,
+    // bu servis görseli yeniden sunarken gerekli başlığı ekliyor)
+    try {
+        const temizUrl = url.replace(/^https?:\/\//, '');
+        const proxyUrl = 'https://images.weserv.nl/?url=' + encodeURIComponent(temizUrl);
+        const res = await fetch(proxyUrl);
+        if (!res.ok) throw new Error('proxy başarısız');
+        const blob = await res.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const img = await new Promise((resolve, reject) => {
+            const im = new Image();
+            im.onload = () => resolve(im);
+            im.onerror = () => reject(new Error('proxy görseli çözümlenemedi'));
+            im.src = blobUrl;
+        });
+        return { img, blobUrl };
+    } catch (e) {
+        return null; // Üç yol da başarısız oldu, çağıran renkli blok fallback'ine düşecek
+    }
+}
+
+let sharePages = []; // { blob, url }
+let currentSharePage = 0;
+
+function sharePagesTemizle() {
+    sharePages.forEach(p => URL.revokeObjectURL(p.url));
+    sharePages = [];
+}
+
+function paylasimAc() {
+    document.getElementById('shareModal').classList.add('active');
+    document.getElementById('sharePreviewWrap').style.display = 'none';
+    document.getElementById('shareActions').style.display = 'none';
+    document.getElementById('shareLoading').style.display = 'none';
+    document.getElementById('downloadAllBtn').style.display = 'none';
+    sharePagesTemizle();
+    currentSharePage = 0;
+}
+function paylasimKapat() {
+    document.getElementById('shareModal').classList.remove('active');
+    sharePagesTemizle();
+}
+
+function kapsamiUygula(scope) {
+    let sonuc = veriler;
+    if (scope === 'izlendi') sonuc = sonuc.filter(d => d.durum === 'İzlendi');
+    else if (scope === 'izleniyor') sonuc = sonuc.filter(d => d.durum === 'İzleniyor');
+    else if (scope === 'izlenecek') sonuc = sonuc.filter(d => d.durum === 'İzlenecek');
+
+    const tur = document.getElementById('shareTur') ? document.getElementById('shareTur').value : 'Tümü';
+    if (tur !== 'Tümü') sonuc = sonuc.filter(d => d.tur === tur);
+
+    const puanSecimi = document.getElementById('sharePuan') ? document.getElementById('sharePuan').value : 'tumu';
+    if (puanSecimi !== 'tumu') {
+        const [altSinir, ustSinir] = puanSecimi.split('-').map(Number);
+        sonuc = sonuc.filter(d => d.puan && d.puan >= altSinir && d.puan <= ustSinir);
+    }
+    return sonuc;
+}
+
+function kartAltYazisi(isim) {
+    return isim && isim.trim() ? (isim.trim() + "'ın Seyir Defteri") : 'Seyir Defteri';
+}
+
+async function kartOlustur() {
+    const scope = document.getElementById('shareScope').value;
+    const kullaniciAdi = document.getElementById('shareName').value.trim();
+    const items = kapsamiUygula(scope);
+    if (items.length === 0) {
+        toast('Bu kategoride hiç içerik yok');
+        return;
+    }
+    document.getElementById('shareLoading').style.display = 'block';
+    document.getElementById('sharePreviewWrap').style.display = 'none';
+    document.getElementById('shareActions').style.display = 'none';
+
+    try {
+    const ITEMS_PER_PAGE = 30;
+    const sayfalar = [];
+    for (let i = 0; i < items.length; i += ITEMS_PER_PAGE) sayfalar.push(items.slice(i, i + ITEMS_PER_PAGE));
+
+    const baslikMap = { all: 'Tüm Koleksiyonum', izlendi: 'İzlediklerim', izleniyor: 'İzlemeye Devam Ediyorum', izlenecek: 'İzleme Listem' };
+    sharePagesTemizle();
+
+    for (let p = 0; p < sayfalar.length; p++) {
+        const gosterilecek = sayfalar[p];
+        const yuklenenSonuclar = await Promise.all(gosterilecek.map(d => posterGorseliYukle(d.poster)));
+        const yuklenenGorseller = yuklenenSonuclar.map(s => s ? s.img : null);
+        const geciciBlobUrller = yuklenenSonuclar.filter(s => s && s.blobUrl).map(s => s.blobUrl);
+
+        const canvas = document.getElementById('shareCanvas');
+        const W = 1080;
+        const cols = gosterilecek.length <= 9 ? 3 : (gosterilecek.length <= 20 ? 4 : 5);
+        const gap = 10;
+        const padX = 40;
+        const cellW = (W - padX*2 - gap*(cols-1)) / cols;
+        const cellH = cellW * 1.5;
+        const rows = Math.ceil(gosterilecek.length / cols);
+        const headerH = 220;
+        const footerH = 80;
+        const gridH = rows * cellH + (rows-1) * gap;
+        const H = headerH + gridH + footerH + 20;
+
+        canvas.width = W; canvas.height = H;
+        const ctx = canvas.getContext('2d');
+
+        const grad = ctx.createLinearGradient(0, 0, W, H);
+        grad.addColorStop(0, '#0f172a');
+        grad.addColorStop(0.5, '#1e1b4e');
+        grad.addColorStop(1, '#0f172a');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, W, H);
+        ctx.fillStyle = 'rgba(168,85,247,0.15)';
+        ctx.beginPath(); ctx.arc(W-80, 60, 150, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = 'rgba(236,72,153,0.12)';
+        ctx.beginPath(); ctx.arc(60, H-60, 170, 0, Math.PI*2); ctx.fill();
+
+        ctx.textAlign = 'center';
+        ctx.font = '700 58px Arial';
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText('🎬 Seyir Defterim', W/2, 90);
+        ctx.font = '400 30px Arial';
+        ctx.fillStyle = '#c084fc';
+        const turEki = document.getElementById('shareTur').value !== 'Tümü' ? (' • ' + document.getElementById('shareTur').value) : '';
+        const puanEkiSecim = document.getElementById('sharePuan').value;
+        const puanEkiMap = { '10-10': ' • Sadece 10 puan', '9-10': ' • 9-10 puan', '7-10': ' • 7+ puan', '5-10': ' • 5+ puan' };
+        const puanEki = puanEkiMap[puanEkiSecim] || '';
+        ctx.fillText((baslikMap[scope] || '') + turEki + puanEki, W/2, 132);
+        ctx.font = '700 44px Arial';
+        ctx.fillStyle = '#a855f7';
+        let sayacYazi = items.length + ' yapım';
+        if (sayfalar.length > 1) sayacYazi += '  •  Sayfa ' + (p+1) + '/' + sayfalar.length;
+        ctx.fillText(sayacYazi, W/2, 190);
+
+        let colorIdx = 0;
+        const colors = ['#a855f7','#ec4899','#8b5cf6','#d946ef','#7c3aed'];
+        for (let i = 0; i < gosterilecek.length; i++) {
+            const row = Math.floor(i / cols);
+            const col = i % cols;
+            const x = padX + col * (cellW + gap);
+            const y = headerH + row * (cellH + gap);
+
+            ctx.save();
+            roundRect(ctx, x, y, cellW, cellH, 12);
+            ctx.clip();
+
+            const img = yuklenenGorseller[i];
+            if (img) {
+                const imgRatio = img.width / img.height;
+                const cellRatio = cellW / cellH;
+                let sw, sh, sx, sy;
+                if (imgRatio > cellRatio) {
+                    sh = img.height; sw = sh * cellRatio;
+                    sx = (img.width - sw) / 2; sy = 0;
+                } else {
+                    sw = img.width; sh = sw / cellRatio;
+                    sx = 0; sy = (img.height - sh) / 2;
+                }
+                ctx.drawImage(img, sx, sy, sw, sh, x, y, cellW, cellH);
+            } else {
+                ctx.fillStyle = colors[colorIdx % colors.length];
+                colorIdx++;
+                ctx.fillRect(x, y, cellW, cellH);
+                ctx.fillStyle = 'rgba(255,255,255,0.9)';
+                ctx.font = '700 ' + Math.round(cellW*0.4) + 'px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(gosterilecek[i].isim.charAt(0).toUpperCase(), x + cellW/2, y + cellH/2 + cellW*0.14);
+            }
+            ctx.restore();
+        }
+
+        // Alt bilgi: kullanıcı adıyla
+        ctx.textAlign = 'center';
+        ctx.font = '700 30px Arial';
+        ctx.fillStyle = '#e9d5ff';
+        ctx.fillText('🎥 ' + kartAltYazisi(kullaniciAdi), W/2, H - 30);
+
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+        if (blob) {
+            sharePages.push({ blob, url: URL.createObjectURL(blob) });
+        }
+        geciciBlobUrller.forEach(u => URL.revokeObjectURL(u)); // poster indirme için kullanılan geçici URL'ler artık gereksiz
+    }
+
+    document.getElementById('shareLoading').style.display = 'none';
+    if (sharePages.length === 0) {
+        toast('Görsel oluşturulamadı, metin olarak paylaşabilirsin');
+        document.getElementById('shareActions').style.display = 'flex';
+        return;
+    }
+    currentSharePage = 0;
+    sayfaGoster();
+    document.getElementById('shareActions').style.display = 'flex';
+    document.getElementById('downloadAllBtn').style.display = sharePages.length > 1 ? 'block' : 'none';
+    document.getElementById('shareActions').scrollIntoView({ behavior: 'smooth', block: 'end' });
+    } catch (err) {
+        console.error('Kart oluşturma hatası:', err);
+        document.getElementById('shareLoading').style.display = 'none';
+        toast('Görsel oluşturulamadı, metin olarak paylaşabilirsin');
+        document.getElementById('shareActions').style.display = 'flex';
+    }
+}
+
+function sayfaGoster() {
+    const preview = document.getElementById('sharePreview');
+    preview.src = sharePages[currentSharePage].url;
+    document.getElementById('sharePreviewWrap').style.display = 'block';
+    const nav = document.getElementById('pageNav');
+    if (sharePages.length > 1) {
+        nav.style.display = 'flex';
+        document.getElementById('pageIndicator').textContent = 'Sayfa ' + (currentSharePage+1) + ' / ' + sharePages.length;
+    } else {
+        nav.style.display = 'none';
+    }
+}
+
+function sayfaDegistir(yon) {
+    currentSharePage = (currentSharePage + yon + sharePages.length) % sharePages.length;
+    sayfaGoster();
+}
+
+function tumSayfalariIndir() {
+    sharePages.forEach((sayfa, i) => {
+        setTimeout(() => {
+            const a = document.createElement('a');
+            a.href = sayfa.url;
+            a.download = 'seyir-defteri-' + (i+1) + '.png';
+            a.click();
+        }, i * 400);
+    });
+    toast('Tüm sayfalar indiriliyor...');
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x+r, y);
+    ctx.arcTo(x+w, y, x+w, y+h, r);
+    ctx.arcTo(x+w, y+h, x, y+h, r);
+    ctx.arcTo(x, y+h, x, y, r);
+    ctx.arcTo(x, y, x+w, y, r);
+    ctx.closePath();
+}
+
+function metinOlustur() {
+    const scope = document.getElementById('shareScope').value;
+    const kullaniciAdi = document.getElementById('shareName').value.trim();
+    const items = kapsamiUygula(scope);
+    const baslikMap = { all: 'Tüm Koleksiyonum', izlendi: 'İzlediklerim', izleniyor: 'İzlemeye Devam Ediyorum', izlenecek: 'İzleme Listem' };
+    let text = '🎬 Seyir Defterim - ' + (baslikMap[scope] || '') + '\n\n';
+    items.forEach((d, i) => { text += (i+1) + '. ' + d.isim + '\n'; });
+    text += '\n🎥 ' + kartAltYazisi(kullaniciAdi);
+    return text;
+}
+
+async function whatsappPaylas() {
+    if (sharePages.length === 0) { toast('Önce kart oluştur'); return; }
+    const text = metinOlustur();
+    // Tek sayfa varsa onu, birden fazla sayfa varsa HEPSİNİ birden paylaş (Web Share API çoklu dosya destekliyor)
+    const dosyalar = sharePages.map((sayfa, i) => new File([sayfa.blob], 'seyir-defteri-' + (i+1) + '.png', { type: 'image/png' }));
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: dosyalar })) {
+        try {
+            await navigator.share({ files: dosyalar, title: 'Seyir Defterim', text: text });
+            return;
+        } catch (e) { /* kullanıcı iptal etti veya hata oldu, alttaki yedeğe düş */ }
+    }
+    // Çoklu dosya paylaşımı desteklenmiyorsa, en azından mevcut sayfayı paylaşmayı dene
+    const tekDosya = [dosyalar[currentSharePage]];
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: tekDosya })) {
+        try {
+            await navigator.share({ files: tekDosya, title: 'Seyir Defterim', text: text });
+            toast(sharePages.length > 1 ? 'Sadece bu sayfa paylaşıldı — diğerlerini "Tüm Sayfaları İndir" ile alabilirsin' : '');
+            return;
+        } catch (e) { /* iptal edildi */ }
+    }
+    window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
+    toast('Görselleri de indirip WhatsApp\'a ekle');
+}
+
+function gorseliIndir() {
+    if (sharePages.length === 0) { toast('Önce kart oluştur'); return; }
+    const a = document.createElement('a');
+    a.href = sharePages[currentSharePage].url;
+    a.download = 'seyir-defteri-' + (currentSharePage+1) + '.png';
+    a.click();
+    toast('İndirildi! Instagram\'da paylaşabilirsin 🎬');
+}
+
+function metniKopyala() {
+    const text = metinOlustur();
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(() => toast('Metin kopyalandı ✓'));
+    } else {
+        toast('Kopyalama desteklenmiyor');
+    }
+}
+
+// ---- ÖNER (tekli içerik önerisi) ----
+let recommendData = null; // { isim, poster, rating, imdb }
+let recommendBlob = null;
+let recommendUrl = null;
+let secilenEtiket = 'Senin için seçtim';
+
+function onerAc() {
+    const sel = document.getElementById('recommendItem');
+    sel.innerHTML = '<option value="">Koleksiyonundan seç...</option>' +
+        veriler.map((d, idx) => `<option value="${idx}">${escapeHtml(d.isim)}</option>`).join('');
+    document.getElementById('recommendPreview').style.display = 'none';
+    document.getElementById('recommendPreviewImg').style.display = 'none';
+    document.getElementById('recommendActions').style.display = 'none';
+    document.getElementById('recommendLoading').style.display = 'none';
+    document.getElementById('recNote').value = '';
+    recommendData = null;
+    recommendBlob = null;
+    if (recommendUrl) { URL.revokeObjectURL(recommendUrl); recommendUrl = null; }
+    secilenEtiket = 'Senin için seçtim';
+    [...document.querySelectorAll('.rec-tag')].forEach(b => b.classList.toggle('selected', b.dataset.tag === secilenEtiket));
+    document.getElementById('recommendModal').classList.add('active');
+}
+function onerKapat() {
+    document.getElementById('recommendModal').classList.remove('active');
+    if (recommendUrl) { URL.revokeObjectURL(recommendUrl); recommendUrl = null; }
+}
+
+document.getElementById('recTags').addEventListener('click', (e) => {
+    const btn = e.target.closest('.rec-tag');
+    if (!btn) return;
+    secilenEtiket = btn.dataset.tag;
+    [...document.querySelectorAll('.rec-tag')].forEach(b => b.classList.toggle('selected', b === btn));
+});
+
+async function onerItemSecildi() {
+    const idx = document.getElementById('recommendItem').value;
+    if (idx === '') { document.getElementById('recommendPreview').style.display = 'none'; recommendData = null; return; }
+    const item = veriler[idx];
+    recommendData = { isim: item.isim, poster: item.poster, rating: null, imdb: null };
+    document.getElementById('recPoster').src = item.poster;
+    document.getElementById('recIsim').textContent = item.isim;
+    document.getElementById('recPuan').textContent = 'Puan aranıyor...';
+    document.getElementById('recImdbLink').style.display = 'none';
+    document.getElementById('recommendPreview').style.display = 'block';
+
+    try {
+        const cacheAnahtari = 'kesif_' + item.isim.trim().toLocaleLowerCase('tr') + '_' + (item.tur === 'Film' ? 'film' : 'dizi');
+        let onbellek = apiCacheOku(cacheAnahtari);
+        if (onbellek) {
+            recommendData.rating = onbellek.rating || null;
+            recommendData.imdb = onbellek.imdb || null;
+        } else if (item.tur === 'Film' && tmdbHazir) {
+            const res = await fetch(TMDB_PROXY + '?' + new URLSearchParams({ endpoint: 'search/movie', query: item.isim }).toString());
+            if (res.ok) {
+                const data = await res.json();
+                const ilkSonuc = data.results && data.results[0];
+                if (ilkSonuc) {
+                    recommendData.rating = ilkSonuc.vote_average ? Math.round(ilkSonuc.vote_average * 10) / 10 : null;
+                    // IMDb ID için filmin detay uç noktasına ayrı bir istek gerekiyor
+                    try {
+                        const detayRes = await fetch(TMDB_PROXY + '?' + new URLSearchParams({ endpoint: 'movie/' + ilkSonuc.id }).toString());
+                        if (detayRes.ok) {
+                            const detay = await detayRes.json();
+                            recommendData.imdb = detay.imdb_id || null;
+                        }
+                    } catch (e) { /* IMDb linki alınamadı, puan yine de gösterilir */ }
+                }
+                apiCacheYaz(cacheAnahtari, { isim: item.isim, poster: item.poster, rating: recommendData.rating, imdb: recommendData.imdb });
+            }
+        } else {
+            const res = await fetch('https://api.tvmaze.com/singlesearch/shows?q=' + encodeURIComponent(item.isim));
+            if (res.ok) {
+                const data = await res.json();
+                recommendData.rating = data.rating && data.rating.average ? data.rating.average : null;
+                recommendData.imdb = data.externals && data.externals.imdb ? data.externals.imdb : null;
+                apiCacheYaz(cacheAnahtari, { isim: item.isim, poster: item.poster, rating: recommendData.rating, imdb: recommendData.imdb });
+            }
+        }
+        document.getElementById('recPuan').textContent = recommendData.rating ? ('⭐ Puan: ' + recommendData.rating + '/10') : 'Puan bulunamadı';
+        if (recommendData.imdb) {
+            const link = document.getElementById('recImdbLink');
+            link.href = 'https://www.imdb.com/title/' + recommendData.imdb + '/';
+            link.style.display = 'inline';
+        }
+    } catch (e) {
+        document.getElementById('recPuan').textContent = 'Puan bulunamadı';
+    }
+}
+
+async function onerKartOlustur() {
+    if (!recommendData) { toast('Önce bir içerik seç'); return; }
+    const not = document.getElementById('recNote').value.trim();
+    const kullaniciAdi = document.getElementById('recName').value.trim();
+
+    document.getElementById('recommendLoading').style.display = 'block';
+    document.getElementById('recommendPreviewImg').style.display = 'none';
+    document.getElementById('recommendActions').style.display = 'none';
+
+    try {
+    const yukleSonuc = await posterGorseliYukle(recommendData.poster);
+    const img = yukleSonuc ? yukleSonuc.img : null;
+    const geciciBlobUrl = yukleSonuc ? yukleSonuc.blobUrl : null;
+
+    const canvas = document.getElementById('recommendCanvas');
+    const W = 1080, H = 1500;
+    canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext('2d');
+
+    const grad = ctx.createLinearGradient(0, 0, W, H);
+    grad.addColorStop(0, '#0f172a');
+    grad.addColorStop(0.5, '#1e1b4e');
+    grad.addColorStop(1, '#0f172a');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = 'rgba(245,158,11,0.15)';
+    ctx.beginPath(); ctx.arc(W-100, 100, 180, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = 'rgba(239,68,68,0.12)';
+    ctx.beginPath(); ctx.arc(80, H-120, 200, 0, Math.PI*2); ctx.fill();
+
+    ctx.textAlign = 'center';
+    ctx.font = '700 46px Arial';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText('🎁 Bir Öneri', W/2, 90);
+
+    // Poster (büyük, ortalı)
+    const posterW = 560, posterH = 840;
+    const posterX = (W - posterW) / 2, posterY = 130;
+    ctx.save();
+    roundRect(ctx, posterX, posterY, posterW, posterH, 20);
+    ctx.clip();
+    if (img) {
+        const imgRatio = img.width / img.height;
+        const cellRatio = posterW / posterH;
+        let sw, sh, sx, sy;
+        if (imgRatio > cellRatio) { sh = img.height; sw = sh * cellRatio; sx = (img.width - sw)/2; sy = 0; }
+        else { sw = img.width; sh = sw / cellRatio; sx = 0; sy = (img.height - sh)/2; }
+        ctx.drawImage(img, sx, sy, sw, sh, posterX, posterY, posterW, posterH);
+    } else {
+        ctx.fillStyle = '#a855f7';
+        ctx.fillRect(posterX, posterY, posterW, posterH);
+        ctx.fillStyle = 'white';
+        ctx.font = '700 200px Arial';
+        ctx.fillText(recommendData.isim.charAt(0).toUpperCase(), W/2, posterY + posterH/2 + 60);
+    }
+    ctx.restore();
+
+    let y = posterY + posterH + 60;
+
+    // Etiket rozeti
+    ctx.font = '700 32px Arial';
+    const etiketMetni = secilenEtiket;
+    const etiketW = ctx.measureText(etiketMetni).width + 60;
+    ctx.fillStyle = '#f59e0b';
+    roundRect(ctx, W/2 - etiketW/2, y - 44, etiketW, 60, 30);
+    ctx.fill();
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillText(etiketMetni, W/2, y - 3);
+    y += 60;
+
+    // İsim
+    ctx.font = '700 48px Arial';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(recommendData.isim, W/2, y);
+    y += 50;
+
+    // Puan
+    if (recommendData.rating) {
+        ctx.font = '400 32px Arial';
+        ctx.fillStyle = '#facc15';
+        ctx.fillText('⭐ ' + recommendData.rating + '/10', W/2, y);
+        y += 46;
+    }
+
+    // Not
+    if (not) {
+        ctx.font = 'italic 30px Arial';
+        ctx.fillStyle = '#c084fc';
+        const satirlar = metniSatirlaraBol(ctx, '"' + not + '"', W - 160);
+        satirlar.forEach(satir => { ctx.fillText(satir, W/2, y); y += 40; });
+    }
+
+    // Alt bilgi
+    ctx.font = '700 28px Arial';
+    ctx.fillStyle = '#e9d5ff';
+    ctx.fillText('🎥 ' + (kullaniciAdi ? kullaniciAdi + "'dan öneri" : 'Seyir Defteri\'nden öneri'), W/2, H - 40);
+
+    canvas.toBlob((blob) => {
+        if (geciciBlobUrl) URL.revokeObjectURL(geciciBlobUrl); // poster indirme için kullanılan geçici URL artık gereksiz
+        document.getElementById('recommendLoading').style.display = 'none';
+        if (!blob) {
+            toast('Görsel oluşturulamadı, metin olarak paylaşabilirsin');
+            document.getElementById('recommendActions').style.display = 'flex';
+            return;
+        }
+        recommendBlob = blob;
+        if (recommendUrl) URL.revokeObjectURL(recommendUrl);
+        recommendUrl = URL.createObjectURL(blob);
+        const preview = document.getElementById('recommendPreviewImg');
+        preview.src = recommendUrl;
+        preview.style.display = 'block';
+        document.getElementById('recommendActions').style.display = 'flex';
+        document.getElementById('recommendActions').scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }, 'image/png');
+    } catch (err) {
+        console.error('Öneri kartı hatası:', err);
+        document.getElementById('recommendLoading').style.display = 'none';
+        toast('Görsel oluşturulamadı, metin olarak paylaşabilirsin');
+        document.getElementById('recommendActions').style.display = 'flex';
+    }
+}
+
+function metniSatirlaraBol(ctx, text, maxWidth) {
+    const kelimeler = text.split(' ');
+    const satirlar = [];
+    let satir = '';
+    kelimeler.forEach(k => {
+        const test = satir ? satir + ' ' + k : k;
+        if (ctx.measureText(test).width > maxWidth && satir) {
+            satirlar.push(satir);
+            satir = k;
+        } else {
+            satir = test;
+        }
+    });
+    if (satir) satirlar.push(satir);
+    return satirlar;
+}
+
+function onerMetni() {
+    const not = document.getElementById('recNote').value.trim();
+    const kullaniciAdi = document.getElementById('recName').value.trim();
+    let text = '🎁 ' + secilenEtiket + ': ' + recommendData.isim + '\n';
+    if (recommendData.rating) text += '⭐ Puan: ' + recommendData.rating + '/10\n';
+    if (recommendData.imdb) text += 'IMDb: https://www.imdb.com/title/' + recommendData.imdb + '/\n';
+    if (not) text += '\n"' + not + '"\n';
+    text += '\n🎥 ' + (kullaniciAdi ? kullaniciAdi + "'dan öneri" : 'Seyir Defteri\'nden öneri');
+    return text;
+}
+
+async function onerWhatsapp() {
+    if (!recommendBlob) { toast('Önce kart oluştur'); return; }
+    const text = onerMetni();
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [new File([recommendBlob], 'oneri.png', { type: 'image/png' })] })) {
+        try {
+            await navigator.share({ files: [new File([recommendBlob], 'oneri.png', { type: 'image/png' })], title: 'Bir Öneri', text: text });
+            return;
+        } catch (e) { /* yedeğe düş */ }
+    }
+    window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
+    toast('Görseli de indirip WhatsApp\'a ekle');
+}
+
+function onerIndir() {
+    if (!recommendBlob) { toast('Önce kart oluştur'); return; }
+    const a = document.createElement('a');
+    a.href = recommendUrl;
+    a.download = 'oneri.png';
+    a.click();
+    toast('İndirildi! 🎬');
+}
+
+function onerMetniKopyala() {
+    if (!recommendData) { toast('Önce bir içerik seç'); return; }
+    navigator.clipboard.writeText(onerMetni()).then(() => toast('Metin kopyalandı ✓'));
+}
+
+
+guncelle();
+yukleKesifIzgara(); // arka plan poster teması ve keşif ızgarasını baştan yükle
+firebaseBaslat(); // bulut senkronu (yapılandırılmışsa)
+
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(() => {});
+    });
+}
+</script>
+</body>
+</html>
