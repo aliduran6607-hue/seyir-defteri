@@ -279,6 +279,20 @@
     }
     .rec-tag.selected { background: linear-gradient(135deg,#f59e0b,#ef4444); border-color:transparent; color:white; box-shadow: 0 4px 14px rgba(239,68,68,0.3); }
 
+    #bildirimAcKapaCheckbox:checked + #bildirimToggleGorsel { background: linear-gradient(135deg,#a855f7,#ec4899); }
+    #bildirimToggleGorsel::before {
+        content:''; position:absolute; width:18px; height:18px; left:3px; bottom:3px;
+        background:white; border-radius:50%; transition:0.2s;
+    }
+    #bildirimAcKapaCheckbox:checked + #bildirimToggleGorsel::before { transform: translateX(20px); }
+    .bildirim-kart {
+        background: rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1);
+        border-radius:10px; padding:12px 14px;
+    }
+    .bildirim-kart .baslik { font-weight:700; font-size:0.88em; margin-bottom:4px; color:#fff; }
+    .bildirim-kart .mesaj { font-size:0.82em; color:#c4b5fd; line-height:1.4; }
+    .bildirim-kart .tarih { font-size:0.7em; color:#8478a8; margin-top:6px; }
+
     .tag-chip {
         background: rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); color:#e0e7ff;
         padding:8px 14px; border-radius:18px; cursor:pointer; font-size:0.8em; font-weight:600; transition: all 0.2s ease;
@@ -311,9 +325,15 @@
                 <h1>🎬 Seyir Defteri</h1>
                 <p>Dizi ve filmlerini ara, keşfet, takip et</p>
             </div>
-            <button id="syncBtn" onclick="syncButonTiklandi()" style="background:rgba(30,25,60,0.55);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:8px 12px;color:#a99bd6;font-size:0.75em;font-weight:600;cursor:pointer;white-space:nowrap;backdrop-filter:blur(8px);">
-                ☁️ Hesapsız
-            </button>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <button id="bildirimBtn" onclick="bildirimPaneliAcKapa()" style="position:relative;background:rgba(30,25,60,0.55);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:8px 10px;color:#a99bd6;cursor:pointer;backdrop-filter:blur(8px);font-size:1em;">
+                    🔔
+                    <span id="bildirimNokta" style="display:none;position:absolute;top:4px;right:4px;width:8px;height:8px;border-radius:50%;background:#ec4899;"></span>
+                </button>
+                <button id="syncBtn" onclick="syncButonTiklandi()" style="background:rgba(30,25,60,0.55);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:8px 12px;color:#a99bd6;font-size:0.75em;font-weight:600;cursor:pointer;white-space:nowrap;backdrop-filter:blur(8px);">
+                    ☁️ Hesapsız
+                </button>
+            </div>
         </div>
     </div>
 
@@ -417,6 +437,12 @@
 
     <div id="tabAdmin" class="hidden">
         <div class="content" style="padding-top:4px;">
+            <div class="stat-block" style="margin-bottom:16px;">
+                <div class="stat-block-title">📢 Bildirim Gönder</div>
+                <input type="text" id="adminBildirimBaslik" placeholder="Başlık (örn: Yeni özellik!)" style="width:100%;margin-bottom:10px;padding:10px;border-radius:8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:white;">
+                <textarea id="adminBildirimMesaj" rows="2" placeholder="Mesaj" style="width:100%;margin-bottom:10px;padding:10px;border-radius:8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:white;font-family:inherit;resize:vertical;"></textarea>
+                <button onclick="adminBildirimGonder()" style="width:100%;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#a855f7,#ec4899);color:white;font-weight:700;cursor:pointer;">Gönder</button>
+            </div>
             <div id="adminContent"></div>
         </div>
     </div>
@@ -536,6 +562,23 @@
                     <iframe id="ddTrailerFrame" width="100%" height="100%" style="display:block;border:none;" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
                 </div>
                 <button id="ddEkleBtn" onclick="discoverDetayEkle()" style="width:100%;padding:14px;border-radius:12px;border:none;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#a855f7,#ec4899);color:white;font-size:0.95em;box-shadow:0 4px 14px rgba(168,85,247,0.35);">➕ Koleksiyonuma Ekle</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="bildirimModal" role="dialog" aria-modal="true">
+        <div class="modal" style="max-width:400px;max-height:80vh;overflow-y:auto;">
+            <h3>🔔 Bildirimler</h3>
+            <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,0.05);border-radius:10px;padding:12px 14px;margin-bottom:16px;">
+                <span style="font-size:0.85em;color:#e0e7ff;">Bildirimleri Aç</span>
+                <label style="position:relative;display:inline-block;width:44px;height:24px;">
+                    <input type="checkbox" id="bildirimAcKapaCheckbox" onchange="bildirimTercihiDegisti()" style="opacity:0;width:0;height:0;">
+                    <span id="bildirimToggleGorsel" style="position:absolute;inset:0;background:#4b5563;border-radius:24px;cursor:pointer;transition:0.2s;" onclick="document.getElementById('bildirimAcKapaCheckbox').click()"></span>
+                </label>
+            </div>
+            <div id="bildirimListesi" style="display:flex;flex-direction:column;gap:8px;"></div>
+            <div class="modal-buttons" style="margin-top:14px;">
+                <button class="btn-cancel" onclick="bildirimPaneliAcKapa()">Kapat</button>
             </div>
         </div>
     </div>
@@ -685,6 +728,7 @@ function firebaseBaslat() {
         firebase.initializeApp(firebaseConfig);
         db = firebase.firestore();
         firebaseHazir = true;
+        bildirimDinlemeyeBasla();
         firebase.auth().onAuthStateChanged(async (kullanici) => {
             currentUser = kullanici;
             const btn = document.getElementById('syncBtn');
@@ -870,6 +914,107 @@ function sekmeDegistir(tab) {
     if (tab === 'admin') adminVerileriYukle();
 }
 
+// ---- BİLDİRİMLER ----
+let bildirimDinleyiciAktif = false;
+
+function bildirimTercihiOkundu() {
+    return localStorage.getItem('bildirimTercihi') === 'acik';
+}
+
+function bildirimPaneliAcKapa() {
+    const modal = document.getElementById('bildirimModal');
+    const aciliyor = !modal.classList.contains('active');
+    modal.classList.toggle('active');
+    if (aciliyor) {
+        document.getElementById('bildirimAcKapaCheckbox').checked = bildirimTercihiOkundu();
+        document.getElementById('bildirimNokta').style.display = 'none';
+        localStorage.setItem('bildirimSonGorulen', Date.now().toString());
+        bildirimListesiniGoster();
+    }
+}
+
+async function bildirimTercihiDegisti() {
+    const acikMi = document.getElementById('bildirimAcKapaCheckbox').checked;
+    if (acikMi) {
+        if (typeof Notification === 'undefined') {
+            toast('Tarayıcın bildirimleri desteklemiyor');
+            document.getElementById('bildirimAcKapaCheckbox').checked = false;
+            return;
+        }
+        const izin = await Notification.requestPermission();
+        if (izin !== 'granted') {
+            toast('Bildirim izni verilmedi');
+            document.getElementById('bildirimAcKapaCheckbox').checked = false;
+            return;
+        }
+    }
+    localStorage.setItem('bildirimTercihi', acikMi ? 'acik' : 'kapali');
+    toast(acikMi ? 'Bildirimler açıldı ✓' : 'Bildirimler kapatıldı');
+}
+
+async function bildirimListesiniGoster() {
+    const el = document.getElementById('bildirimListesi');
+    if (!firebaseHazir || !db) {
+        el.innerHTML = '<div style="color:#a99bd6;font-size:0.85em;">Bulut senkronu kurulmadan bildirimler çalışmaz.</div>';
+        return;
+    }
+    el.innerHTML = '<div class="loading">Yükleniyor...</div>';
+    try {
+        const snap = await db.collection('bildirimler').orderBy('tarih', 'desc').limit(15).get();
+        if (snap.empty) {
+            el.innerHTML = '<div style="color:#a99bd6;font-size:0.85em;">Henüz bildirim yok.</div>';
+            return;
+        }
+        el.innerHTML = snap.docs.map(doc => {
+            const b = doc.data();
+            const tarihStr = b.tarih && b.tarih.toDate ? b.tarih.toDate().toLocaleString('tr-TR') : '';
+            return `<div class="bildirim-kart">
+                <div class="baslik">${escapeHtml(b.baslik || '')}</div>
+                <div class="mesaj">${escapeHtml(b.mesaj || '')}</div>
+                <div class="tarih">${tarihStr}</div>
+            </div>`;
+        }).join('');
+    } catch (e) {
+        el.innerHTML = '<div style="color:#a99bd6;font-size:0.85em;">Bildirimler yüklenemedi.</div>';
+    }
+}
+
+function bildirimDinlemeyeBasla() {
+    if (bildirimDinleyiciAktif || !firebaseHazir || !db) return;
+    bildirimDinleyiciAktif = true;
+    db.collection('bildirimler').orderBy('tarih', 'desc').limit(1)
+        .onSnapshot(snap => {
+            if (snap.empty) return;
+            const doc = snap.docs[0];
+            const b = doc.data();
+            if (!b.tarih || !b.tarih.toMillis) return;
+            const sonGorulen = Number(localStorage.getItem('bildirimSonGorulen') || 0);
+            if (b.tarih.toMillis() <= sonGorulen) return; // zaten görülmüş
+
+            document.getElementById('bildirimNokta').style.display = 'block';
+            if (bildirimTercihiOkundu() && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+                try { new Notification(b.baslik || 'Seyir Defteri', { body: b.mesaj || '', icon: 'icon-192.png' }); } catch (e) {}
+            }
+        });
+}
+
+async function adminBildirimGonder() {
+    const baslik = document.getElementById('adminBildirimBaslik').value.trim();
+    const mesaj = document.getElementById('adminBildirimMesaj').value.trim();
+    if (!baslik || !mesaj) { toast('Başlık ve mesaj gerekli'); return; }
+    try {
+        await db.collection('bildirimler').add({
+            baslik, mesaj,
+            tarih: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        toast('Bildirim gönderildi ✓');
+        document.getElementById('adminBildirimBaslik').value = '';
+        document.getElementById('adminBildirimMesaj').value = '';
+    } catch (e) {
+        toast('Gönderilemedi, yetki hatası olabilir');
+    }
+}
+
 async function adminVerileriYukle() {
     const el = document.getElementById('adminContent');
     el.innerHTML = '<div class="loading">Yükleniyor...</div>';
@@ -932,6 +1077,7 @@ document.addEventListener('keydown', (e) => {
     if (document.getElementById('authModal').classList.contains('active')) authModuKapat();
     if (document.getElementById('discoverDetailModal').classList.contains('active')) discoverDetayKapat();
     if (document.getElementById('tagModal').classList.contains('active')) etiketModalKapat();
+    if (document.getElementById('bildirimModal').classList.contains('active')) bildirimPaneliAcKapa();
     searchResults.classList.remove('active'); searchInput.setAttribute('aria-expanded','false');
 });
 
