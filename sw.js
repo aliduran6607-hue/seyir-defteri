@@ -22,7 +22,7 @@ self.addEventListener('fetch', (event) => {
   // Dış API'leri ve kendi sunucu fonksiyonumuzu (TMDB proxy, canlı/dinamik veri) hiç önbelleğe alma
   const disaridakiler = ['api.tvmaze.com', 'themoviedb.org', 'image.tmdb.org', 'googleapis.com', 'gstatic.com', 'firebaseio.com', 'firestore.googleapis.com', 'images.weserv.nl'];
   if (disaridakiler.some((d) => url.includes(d))) return;
-  if (url.includes('/.netlify/functions/')) return; // kendi proxy fonksiyonumuz - her zaman taze veri gelsin
+  if (url.includes('/.netlify/functions/') || url.includes('/api/')) return; // kendi proxy fonksiyonlarımız - her zaman taze veri gelsin
   if (event.request.method !== 'GET') return; // sadece GET isteklerini önbellekle, yazma isteklerine dokunma
 
   // Kendi dosyalarımız için: önce ağdan taze sürümü almayı dene, olmazsa önbelleğe düş

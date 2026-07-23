@@ -8,6 +8,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="theme-color" content="#a855f7">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' https: data: blob:; connect-src 'self' https://api.tvmaze.com https://api.themoviedb.org https://image.tmdb.org https://images.weserv.nl https://*.firebaseio.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com; frame-src https://www.youtube.com;">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Seyir Defteri">
@@ -699,7 +700,7 @@ const firebaseConfig = {
 // o da gerçek TMDB isteğini anahtarla birlikte sunucudan yapıp sonucu bize dönüyor.
 // Netlify'a taşınmadıysan (hâlâ GitHub Pages kullanıyorsan) bu istekler başarısız olur ve
 // uygulama otomatik olarak sadece TVMaze (dizi) sonuçlarıyla çalışmaya devam eder.
-const TMDB_PROXY = '/.netlify/functions/tmdb';
+const TMDB_PROXY = '/api/tmdb';
 const ADMIN_EMAIL = 'aliduran6607@gmail.com'; // sadece bu hesap admin sekmesini görebilir
 const tmdbHazir = true; // Sunucu tarafında kurulup kurulmadığını her istek kendi içinde kontrol ediyor
 const TMDB_IMG = "https://image.tmdb.org/t/p/w300";
@@ -1504,7 +1505,7 @@ async function aiKonuAra() {
         const cacheAnahtari = 'ai_konu_' + konu.trim().toLocaleLowerCase('tr');
         let isimler = aiCacheOku(cacheAnahtari);
         if (!isimler) {
-            const res = await fetch('/.netlify/functions/gemini?' + new URLSearchParams({ konu }).toString());
+            const res = await fetch('/api/gemini?' + new URLSearchParams({ konu }).toString());
             if (!res.ok) throw new Error('gemini hatası');
             isimler = await res.json();
             if (isimler.error) throw new Error(isimler.error);
