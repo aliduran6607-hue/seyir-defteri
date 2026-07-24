@@ -562,7 +562,8 @@
                 <div id="ddTrailerWrap" style="display:none;margin-bottom:18px;border-radius:12px;overflow:hidden;aspect-ratio:16/9;background:#000;">
                     <iframe id="ddTrailerFrame" width="100%" height="100%" style="display:block;border:none;" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
                 </div>
-                <button id="ddEkleBtn" onclick="discoverDetayEkle()" style="width:100%;padding:14px;border-radius:12px;border:none;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#a855f7,#ec4899);color:white;font-size:0.95em;box-shadow:0 4px 14px rgba(168,85,247,0.35);">➕ Koleksiyonuma Ekle</button>
+           <button id="ddBenzerBtn" onclick="benzerleriBul()" style="width:100%;padding:14px;border-radius:12px;border:none;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#3b82f6,#8b5cf6);color:white;font-size:0.95em;margin-bottom:10px;display:none;">🔍 Benzerlerini Bul</button>
+           <button id="ddEkleBtn" onclick="discoverDetayEkle()" style="width:100%;padding:14px;border-radius:12px;border:none;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#a855f7,#ec4899);color:white;font-size:0.95em;box-shadow:0 4px 14px rgba(168,85,247,0.35);">➕ Koleksiyonuma Ekle</button>
             </div>
         </div>
     </div>
@@ -1505,7 +1506,7 @@ async function aiKonuAra() {
         const cacheAnahtari = 'ai_konu_' + konu.trim().toLocaleLowerCase('tr');
         let isimler = aiCacheOku(cacheAnahtari);
         if (!isimler) {
-            const res = await fetch('/api/gemini?' + new URLSearchParams({ konu }).toString());
+            const res = await fetch('/api/ai-search?' + new URLSearchParams({ konu }).toString());
             if (!res.ok) throw new Error('gemini hatası');
             isimler = await res.json();
             if (isimler.error) throw new Error(isimler.error);
@@ -1647,6 +1648,12 @@ async function discoverDetayAc(item) {
     document.getElementById('ddTrailerWrap').style.display = 'none';
     document.getElementById('ddLoading').style.display = 'block';
 
+    const benzerBtn = document.getElementById('ddBenzerBtn');
+    if ((item.tmdbId || item.tvId) && tmdbHazir) {
+    benzerBtn.style.display = 'block';
+    } else {
+    benzerBtn.style.display = 'none';
+    }
     const ekliMi = listedeVarMi(item.isim);
     const ekleBtn = document.getElementById('ddEkleBtn');
     ekleBtn.textContent = ekliMi ? '✓ Zaten Koleksiyonunda' : '➕ Koleksiyonuma Ekle';
@@ -2832,6 +2839,68 @@ function onerMetniKopyala() {
     navigator.clipboard.writeText(onerMetni()).then(() => toast('Metin kopyalandı ✓'));
 }
 
+async function benzerleriBul() {
+  if (!discoverDetayItem) return;
+  
+  const item = discoverDetayItem;
+  const btn = document.getElementById('ddBenzerBtn');
+  const sonucDiv = document.getElementById('aiSonucBolumu');
+  
+  btn.disabled = true;
+  btn.textContent = '⏳ Aranıyor...';
+  
+  discoverDetayKapat();
+  sekmeDegistir('search');
+  sonucDiv.style.display = 'block';
+  sonucDiv.innerHTML = '<div class="loading">🔍 ' + escapeHtml(item.isim) + ' ile benzer içerikler aranıyor...</div>';
+  document.getElementById('aiKonuInput').value = '';
+  
+  try {
+    let filmler = [];
+    let diziler = [];
+    
+    if (item.kategori === 'Film' && item.tmdbId) {
+      const data = await tmdbFetch('movie/' + item.tmdbId + '/similar', { language: 'tr-TR' });
+      filmler = (data.results || []).slice(0, 8).map(m => ({
+        isim: m.title,
+        poster: m.poster_path ? TMDB_IMG + m.poster_path : placeholderUrl(m.title),
+        rating: m.vote_average ? Math.round(m.vote_average * 10) / 10 : null,
+        kategori: 'Film',
+        tmdbId: m.id
+      }));
+    } else if (item.kategori !== 'Film' && item.tvId) {
+      let tmdbTvId = null;
+      try {
+        const arama = await tmdbFetch('search/tv', { query: item.isim, language: 'tr-TR' });
+        if (arama.results && arama.results[0]) tmdbTvId = arama.results[0].id;
+      } catch (e) {}
+      
+      if (tmdbTvId) {
+        const data = await tmdbFetch('tv/' + tmdbTvId + '/similar', { language: 'tr-TR' });
+        diziler = (data.results || []).slice(0, 8).map(t => ({
+          isim: t.name,
+          poster: t.poster_path ? TMDB_IMG + t.poster_path : placeholderUrl(t.name),
+          rating: t.vote_average ? Math.round(t.vote_average * 10) / 10 : null,
+          kategori: 'Dizi',
+          tmdbId: t.id
+        }));
+      }
+    }
+    
+    if (filmler.length === 0 && diziler.length === 0) {
+      sonucDiv.innerHTML = '<div class="no-results">Benzer içerik bulunamadı.</div>';
+      return;
+    }
+    
+    aiSonuclariniGoster(diziler, filmler);
+    
+  } catch (e) {
+    sonucDiv.innerHTML = '<div class="no-results">Benzer içerik araması başarısız oldu.</div>';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🔍 Benzerlerini Bul';
+  }
+}
 
 guncelle();
 yukleKesifIzgara(); // arka plan poster teması ve keşif ızgarasını baştan yükle
