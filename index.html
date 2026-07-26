@@ -651,6 +651,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
 <script>
 function verayiDogrula(d) {
     const gecerli = d && typeof d.isim === 'string' && d.isim.trim() !== ''
@@ -730,6 +731,15 @@ function firebaseBaslat() {
         firebase.initializeApp(firebaseConfig);
         db = firebase.firestore();
         firebaseHazir = true;
+        // FCM bildirim token'ını kaydet
+        try {
+            const messaging = firebase.messaging();
+            messaging.getToken({ vapidKey: 'BCyY-8teLxPpHxU03xYoY0VPoWdfu2iYvyvTdtHSxw70dgdAXmi3nlnbrMjE8HE1Vb9s8V6JMVu-tt11_OMDGi8' }).then((token) => {
+                if (token && currentUser) {
+                    db.collection('fcmTokens').doc(currentUser.uid).set({ token, updatedAt: new Date().toISOString() });
+                }
+            });
+        } catch (e) {}
         bildirimDinlemeyeBasla();
         firebase.auth().onAuthStateChanged(async (kullanici) => {
             currentUser = kullanici;
@@ -951,6 +961,17 @@ async function bildirimTercihiDegisti() {
         }
     }
     localStorage.setItem('bildirimTercihi', acikMi ? 'acik' : 'kapali');
+    // Token'ı hemen al ve kaydet
+    if (acikMi && firebaseHazir && currentUser) {
+        try {
+            const messaging = firebase.messaging();
+            messaging.getToken({ vapidKey: 'BCyY-8teLxPpHxU03xYoY0VPoWdfu2iYvyvTdtHSxw70dgdAXmi3nlnbrMjE8HE1Vb9s8V6JMVu-tt11_OMDGi8' }).then((token) => {
+                if (token) {
+                    db.collection('fcmTokens').doc(currentUser.uid).set({ token, updatedAt: new Date().toISOString() });
+                }
+            });
+        } catch (e) {}
+    }
     toast(acikMi ? 'Bildirimler açıldı ✓' : 'Bildirimler kapatıldı');
 }
 
