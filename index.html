@@ -740,10 +740,15 @@ function firebaseBaslat() {
                 if (bildirimTercihiOkundu()) {
                     try {
                         const messaging = firebase.messaging();
-                        messaging.getToken({ vapidKey: 'BCyY-8teLxPpHxU03xYoY0VPoWdfu2iYvyvTdtHSxw70dgdAXmi3nlnbrMjE8HE1Vb9s8V6JMVu-tt11_OMDGi8' }).then((token) => {
+                        messaging.getToken({ vapidKey: 'BCyY-8teLxPpHxU03xYoY0VPoWdfu2iYvyvTdtHSxw70dgdAXmi3nlnbrMjE8HE1Vb9s8V6JMVu-tt11_OMDGi8' }).then(async (token) => {
                             if (token) {
-                                db.collection('fcmTokens').doc(kullanici.uid).set({ token, updatedAt: new Date().toISOString() });
-                                toast('FCM token kaydedildi ✓');
+                                try {
+                                    await db.collection('fcmTokens').doc(kullanici.uid).set({ token, updatedAt: new Date().toISOString() });
+                                    toast('FCM token kaydedildi ✓');
+                                } catch (yazmaHatasi) {
+                                    toast('Firestore yazma hatası: ' + yazmaHatasi.message);
+                                    console.error('fcmTokens yazma hatası:', yazmaHatasi);
+                                }
                             } else {
                                 toast('FCM: token boş döndü');
                             }
@@ -970,10 +975,15 @@ async function bildirimTercihiDegisti() {
     if (acikMi && firebaseHazir && currentUser) {
         try {
             const messaging = firebase.messaging();
-            messaging.getToken({ vapidKey: 'BCyY-8teLxPpHxU03xYoY0VPoWdfu2iYvyvTdtHSxw70dgdAXmi3nlnbrMjE8HE1Vb9s8V6JMVu-tt11_OMDGi8' }).then((token) => {
+            messaging.getToken({ vapidKey: 'BCyY-8teLxPpHxU03xYoY0VPoWdfu2iYvyvTdtHSxw70dgdAXmi3nlnbrMjE8HE1Vb9s8V6JMVu-tt11_OMDGi8' }).then(async (token) => {
                 if (token) {
-                    db.collection('fcmTokens').doc(currentUser.uid).set({ token, updatedAt: new Date().toISOString() });
-                    toast('FCM token kaydedildi ✓');
+                    try {
+                        await db.collection('fcmTokens').doc(currentUser.uid).set({ token, updatedAt: new Date().toISOString() });
+                        toast('FCM token kaydedildi ✓');
+                    } catch (yazmaHatasi) {
+                        toast('Firestore yazma hatası: ' + yazmaHatasi.message);
+                        console.error('fcmTokens yazma hatası:', yazmaHatasi);
+                    }
                 } else {
                     toast('FCM: token boş döndü');
                 }
