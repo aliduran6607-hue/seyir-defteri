@@ -743,9 +743,12 @@ function firebaseBaslat() {
                         messaging.getToken({ vapidKey: 'BCyY-8teLxPpHxU03xYoY0VPoWdfu2iYvyvTdtHSxw70dgdAXmi3nlnbrMjE8HE1Vb9s8V6JMVu-tt11_OMDGi8' }).then((token) => {
                             if (token) {
                                 db.collection('fcmTokens').doc(kullanici.uid).set({ token, updatedAt: new Date().toISOString() });
+                                toast('FCM token kaydedildi ✓');
+                            } else {
+                                toast('FCM: token boş döndü');
                             }
-                        });
-                    } catch (e) {}
+                        }).catch((e) => { toast('FCM hata: ' + e.message); console.error('FCM getToken hatası:', e); });
+                    } catch (e) { toast('FCM hata (try/catch): ' + e.message); console.error(e); }
                 }
                 btn.textContent = '☁️ ' + kullanici.email;
                 document.getElementById('tabAdminBtn').classList.toggle('hidden', kullanici.email !== ADMIN_EMAIL);
@@ -970,9 +973,12 @@ async function bildirimTercihiDegisti() {
             messaging.getToken({ vapidKey: 'BCyY-8teLxPpHxU03xYoY0VPoWdfu2iYvyvTdtHSxw70dgdAXmi3nlnbrMjE8HE1Vb9s8V6JMVu-tt11_OMDGi8' }).then((token) => {
                 if (token) {
                     db.collection('fcmTokens').doc(currentUser.uid).set({ token, updatedAt: new Date().toISOString() });
+                    toast('FCM token kaydedildi ✓');
+                } else {
+                    toast('FCM: token boş döndü');
                 }
-            });
-        } catch (e) {}
+            }).catch((e) => { toast('FCM hata: ' + e.message); console.error('FCM getToken hatası:', e); });
+        } catch (e) { toast('FCM hata (try/catch): ' + e.message); console.error(e); }
     }
     toast(acikMi ? 'Bildirimler açıldı ✓' : 'Bildirimler kapatıldı');
 }
