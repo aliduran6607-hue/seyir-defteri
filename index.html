@@ -888,7 +888,7 @@ async function bulutVeriYukle() {
         toast('Bulutla senkronize edildi ☁️' + (sadeceYerelOlanlar.length > 0 ? ' (' + sadeceYerelOlanlar.length + ' yerel içerik eklendi)' : ''));
     } catch (e) {
         console.error('Bulut veri yükleme hatası:', e);
-        toast('Bulut yükleme hatası: ' + e.message);
+        toast('Hata: ' + (e.code || '?') + ' / online:' + navigator.onLine + ' / ' + e.message);
     }
 }
 
