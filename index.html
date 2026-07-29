@@ -153,13 +153,27 @@
         background: linear-gradient(to top, rgba(2,6,23,0.96) 0%, rgba(2,6,23,0.55) 55%, rgba(2,6,23,0.1) 100%);
     }
     .kesif-hero-content { position:relative; z-index:1; padding:18px; width:100%; }
-    .kesif-hero-eyebrow { font-size:0.72em; font-weight:700; color:var(--accent-400); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:4px; }
+    .kesif-hero-eyebrow {
+        display:inline-block; font-size:var(--text-xs); font-weight:800; color:white;
+        background: var(--accent-gradient); text-transform:uppercase; letter-spacing:0.05em;
+        padding:3px 9px; border-radius:6px; margin-bottom:8px;
+    }
     .kesif-hero-title { font-size:var(--text-xl); font-weight:800; letter-spacing:-0.02em; line-height:1.15; }
     .kesif-hero-meta { font-size:var(--text-sm); color:#c9bce8; margin-top:6px; display:flex; align-items:center; gap:6px; }
     .discover-grid {
         display:grid; grid-template-columns: repeat(auto-fill, minmax(100px,1fr)); gap:12px;
     }
     .discover-card { position:relative; cursor:pointer; }
+    .kesif-section { margin-bottom:26px; }
+    .kesif-section-header { display:flex; align-items:baseline; justify-content:space-between; margin-bottom:10px; }
+    .kesif-section-title { font-size:var(--text-lg); font-weight:800; letter-spacing:-0.01em; }
+    .kesif-section-subtitle { font-size:var(--text-xs); color:#a99bd6; margin-top:2px; font-weight:500; }
+    .kesif-carousel-row {
+        display:flex; gap:12px; overflow-x:auto; overflow-y:hidden; padding-bottom:4px; scroll-snap-type:x proximity;
+        -webkit-overflow-scrolling:touch; scrollbar-width:none;
+    }
+    .kesif-carousel-row::-webkit-scrollbar { display:none; }
+    .kesif-carousel-row .discover-card { flex:0 0 108px; scroll-snap-align:start; }
     .discover-poster {
         width:100%; aspect-ratio: 2/3; border-radius:12px; object-fit:cover;
         background:#2d2b55; border: 2px solid transparent; transition: all 0.2s ease;
@@ -199,14 +213,14 @@
 
     .stats { max-width: 1200px; margin: 0 auto 20px; padding: 0 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(120px,1fr)); gap: 12px; }
     .stat-card {
-        background: linear-gradient(150deg, rgba(168,85,247,0.9), rgba(124,58,237,0.85));
-        border-radius: 16px; padding: 16px; text-align: center;
-        border: 1px solid rgba(255,255,255,0.12);
-        box-shadow: 0 8px 24px rgba(124,58,237,0.25);
-        backdrop-filter: blur(8px);
+        background: rgba(30,25,60,0.55); border:1px solid rgba(255,255,255,0.08);
+        border-radius: var(--radius-lg); padding: 16px; text-align: left;
+        backdrop-filter: blur(10px); transition: all 0.2s ease;
     }
+    .stat-card:hover { border-color: var(--accent-500); transform: translateY(-2px); }
+    .stat-card-icon { width:32px; height:32px; border-radius:10px; display:flex; align-items:center; justify-content:center; margin-bottom:10px; }
     .stat-number { font-size: 1.7em; font-weight: 800; color: white; letter-spacing: -0.02em; }
-    .stat-label { color: #f0e6ff; font-size: 0.76em; margin-top: 3px; font-weight: 500; letter-spacing: 0.02em; }
+    .stat-label { color: #a99bd6; font-size: var(--text-xs); margin-top: 3px; font-weight: 500; letter-spacing: 0.02em; }
 
     .filters { max-width: 1200px; margin: 0 auto 20px; padding: 0 20px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
     .filter-btn {
@@ -215,6 +229,12 @@
         transition: all 0.2s ease; backdrop-filter: blur(8px);
     }
     .filter-btn.active { background: var(--accent-gradient); color: white; border-color: transparent; box-shadow: 0 4px 14px rgba(168,85,247,0.35); }
+    .ai-preset-chip {
+        padding: 7px 13px; border-radius:var(--radius-pill); border: 1px solid rgba(139,92,246,0.3);
+        background: rgba(139,92,246,0.1); color: #c4b5fd; cursor: pointer; font-size:var(--text-xs); font-weight: 600;
+        transition: all 0.2s ease;
+    }
+    .ai-preset-chip:hover { background: rgba(139,92,246,0.22); border-color: var(--accent-500); }
 
     .content { max-width: 1200px; margin: 0 auto; padding: 0 20px; min-height: 200px; }
     .empty { text-align: center; padding: 60px 20px; color: #9d8fc7; font-weight: 500; }
@@ -228,6 +248,11 @@
     .card:hover { transform: translateY(-5px); border-color:var(--accent-500); box-shadow: 0 10px 28px rgba(0,0,0,0.35), var(--shadow-glow, 0 0 20px var(--accent-glow)); }
     .poster-wrap { position: relative; height: 220px; background:#2d2b55; }
     .poster-wrap img { width:100%; height:100%; object-fit:cover; }
+    .poster-wrap::after {
+        content:''; position:absolute; left:0; right:0; bottom:0; height:45%;
+        background: linear-gradient(to top, rgba(10,8,25,0.75), transparent);
+        pointer-events:none;
+    }
     .status-tag { position: absolute; top:8px; right:8px; padding: 4px 8px; border-radius:var(--radius-sm); font-size: 0.7em; font-weight:600; color:white; }
     .status-izlenecek { background: rgba(107,114,128,0.9); }
     .status-izleniyor { background: rgba(251,191,36,0.9); color:#1a1a1a; }
@@ -422,6 +447,12 @@
                 <button onclick="aiKonuAra()" id="aiAraBtn"
                     style="background:var(--accent-gradient);border:none;border-radius:16px;padding:0 18px;color:white;font-weight:700;cursor:pointer;white-space:nowrap;font-size:0.88em;">🤖 AI ile Ara</button>
             </div>
+            <div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:10px;" id="aiOnerilenKonular">
+                <button class="ai-preset-chip" onclick="aiOnerilenKonuSecildi('Aklını başından alacak ters köşe filmler')">Ters köşe filmler</button>
+                <button class="ai-preset-chip" onclick="aiOnerilenKonuSecildi('Sürükleyici psikolojik gerilim dizileri')">Psikolojik gerilim</button>
+                <button class="ai-preset-chip" onclick="aiOnerilenKonuSecildi('Hapishane ve kaçış temalı dramalar')">Hapishane kaçışı</button>
+                <button class="ai-preset-chip" onclick="aiOnerilenKonuSecildi('Karanlık atmosferli polisiye ve suç dizileri')">Karanlık polisiye</button>
+            </div>
             <div id="aiSonucBolumu" style="display:none;margin-top:18px;"></div>
         </div>
     </div>
@@ -440,9 +471,10 @@
                 </div>
             </div>
 
-            <div class="discover-grid" id="discoverGrid"></div>
-            <div style="text-align:center;margin-top:16px;">
-                <button id="dahaFazlaBtn" onclick="kesifManuelDahaFazla()" style="background:rgba(30,25,60,0.55);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:10px 20px;color:#c084fc;font-weight:600;cursor:pointer;">🔄 Daha Fazla Göster</button>
+            <div class="discover-grid" id="discoverGrid" style="display:none;"></div>
+            <div id="discoverCarousels"></div>
+            <div style="text-align:center;margin-top:8px;">
+                <button id="dahaFazlaBtn" onclick="kesifManuelDahaFazla()" style="display:none;background:rgba(30,25,60,0.55);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:10px 20px;color:#c084fc;font-weight:600;cursor:pointer;">🔄 Daha Fazla Göster</button>
             </div>
         </div>
     </div>
@@ -614,11 +646,14 @@
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
     <div class="modal-overlay" id="discoverDetailModal" role="dialog" aria-modal="true">
-        <div class="modal" style="max-width:480px;max-height:90vh;overflow-y:auto;padding:0;">
+        <div class="modal" style="max-width:480px;max-height:90vh;overflow-y:auto;overflow-x:hidden;padding:0;">
             <div style="position:relative;">
                 <img id="ddPoster" style="width:100%;aspect-ratio:2/3;object-fit:cover;display:block;background:#2d2b55;">
-                <button onclick="discoverDetayKapat()" aria-label="Kapat" style="position:absolute;top:12px;right:12px;background:rgba(0,0,0,0.55);border:none;color:white;width:36px;height:36px;border-radius:50%;font-size:1.1em;cursor:pointer;backdrop-filter:blur(4px);">✕</button>
-                <span id="ddKategoriRozet" style="position:absolute;top:12px;left:12px;background:rgba(0,0,0,0.6);padding:6px 12px;border-radius:8px;font-size:0.82em;font-weight:700;backdrop-filter:blur(4px);"></span>
+                <div style="position:absolute;left:0;right:0;bottom:0;height:90px;background:linear-gradient(to top, #1a1440, transparent);"></div>
+                <button onclick="discoverDetayKapat()" aria-label="Kapat" style="position:absolute;top:12px;right:12px;background:rgba(0,0,0,0.55);border:none;color:white;width:36px;height:36px;border-radius:50%;cursor:pointer;backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+                <span id="ddKategoriRozet" style="position:absolute;top:12px;left:12px;background:var(--accent-gradient);color:white;padding:5px 11px;border-radius:6px;font-size:var(--text-xs);font-weight:800;text-transform:uppercase;letter-spacing:0.04em;"></span>
             </div>
             <div style="padding:20px;">
                 <h3 id="ddIsim" style="font-size:1.25em;margin-bottom:8px;color:#fff;font-weight:800;"></h3>
@@ -647,6 +682,48 @@
             <div id="bildirimListesi" style="display:flex;flex-direction:column;gap:8px;"></div>
             <div class="modal-buttons" style="margin-top:14px;">
                 <button class="btn-cancel" onclick="bildirimPaneliAcKapa()">Kapat</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="profilModal" role="dialog" aria-modal="true">
+        <div class="modal" style="max-width:420px;max-height:85vh;overflow-y:auto;">
+            <div style="text-align:center;margin-bottom:20px;">
+                <img src="icon-192.png" alt="" style="width:64px;height:64px;border-radius:50%;border:2px solid var(--accent-500);box-shadow:0 4px 20px var(--accent-glow);">
+                <div style="font-weight:800;font-size:var(--text-lg);margin-top:10px;" id="profilEmail"></div>
+                <div style="font-size:var(--text-xs);color:#a99bd6;margin-top:2px;" id="profilUyelikTarihi"></div>
+                <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.35);color:#34d399;border-radius:var(--radius-pill);padding:5px 12px;font-size:var(--text-xs);font-weight:700;margin-top:10px;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h.79a4.5 4.5 0 1 1 0 9Z"/><path d="m9 12 2 2 4-4"/></svg>
+                    Bulut Senkronizasyonu Aktif
+                </div>
+            </div>
+
+            <div style="font-weight:700;font-size:var(--text-sm);color:#c4b5fd;margin-bottom:8px;">Bildirimler</div>
+            <div onclick="profilModalKapat();bildirimPaneliAcKapa();" style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,0.05);border-radius:var(--radius-md);padding:12px 14px;margin-bottom:18px;cursor:pointer;">
+                <div>
+                    <div style="font-size:var(--text-sm);font-weight:600;">Bildirim Ayarları</div>
+                    <div style="font-size:var(--text-xs);color:#a99bd6;margin-top:2px;" id="profilBildirimDurumu">—</div>
+                </div>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a99bd6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+            </div>
+
+            <div style="font-weight:700;font-size:var(--text-sm);color:#c4b5fd;margin-bottom:8px;">Yedekleme ve Veri</div>
+            <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:18px;">
+                <button onclick="profilModalKapat();jsonYedekle();" style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:var(--radius-md);padding:12px 14px;color:#e8e6f5;cursor:pointer;text-align:left;font-size:var(--text-sm);font-weight:600;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-400)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Koleksiyonu Yedekle (JSON indir)
+                </button>
+                <button onclick="profilModalKapat();document.getElementById('jsonImportInput').click();" style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:var(--radius-md);padding:12px 14px;color:#e8e6f5;cursor:pointer;text-align:left;font-size:var(--text-sm);font-weight:600;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-400)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    Yedekten Geri Yükle
+                </button>
+            </div>
+
+            <div style="text-align:center;font-size:var(--text-xs);color:#6b6485;margin-bottom:18px;">Seyir Defteri</div>
+
+            <div class="modal-buttons">
+                <button class="btn-cancel" onclick="profilModalKapat()">Kapat</button>
+                <button onclick="profilModalKapat();hesaptanCik();" style="background:rgba(220,38,38,0.15);border:1px solid rgba(220,38,38,0.4);color:#f87171;border-radius:var(--radius-md);padding:11px 18px;font-weight:700;cursor:pointer;">Çıkış Yap</button>
             </div>
         </div>
     </div>
@@ -773,6 +850,9 @@ const ADMIN_EMAIL = 'aliduran6607@gmail.com'; // sadece bu hesap admin sekmesini
 const ICON_FILM = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="7" y1="3" x2="7" y2="21"/><line x1="17" y1="3" x2="17" y2="21"/><line x1="2" y1="8" x2="7" y2="8"/><line x1="2" y1="16" x2="7" y2="16"/><line x1="17" y1="8" x2="22" y2="8"/><line x1="17" y1="16" x2="22" y2="16"/></svg>';
 const ICON_TV = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><rect x="2" y="7" width="20" height="15" rx="2"/><polyline points="17 2 12 7 7 2"/></svg>';
 const ICON_STAR = '<svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="vertical-align:-1px;"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z"/></svg>';
+const ICON_LAYERS = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>';
+const ICON_CHECK_CIRCLE = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>';
+const ICON_CALENDAR_PLUS = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="12" y1="14" x2="12" y2="18"/><line x1="10" y1="16" x2="14" y2="16"/></svg>';
 const tmdbHazir = true; // Sunucu tarafında kurulup kurulmadığını her istek kendi içinde kontrol ediyor
 const TMDB_IMG = "https://image.tmdb.org/t/p/w300";
 
@@ -848,17 +928,37 @@ function syncButonTiklandi() {
         return;
     }
     if (currentUser) {
-        if (confirm('Çıkış yapmak istediğine emin misin? Veriler bu cihazda saklı kalmaya devam eder.')) {
-            firebase.auth().signOut().then(() => {
-                // Bellekteki state'i (önceki hesabın verilerini) tamamen temizlemek için sayfayı yenile.
-                // Böylece başka bir hesapla giriş yapıldığında eski hesabın verileri karışmaz.
-                location.reload();
-            });
-        }
+        profilModalAc();
     } else {
         document.getElementById('authModal').classList.add('active');
         document.getElementById('authError').style.display = 'none';
     }
+}
+
+function hesaptanCik() {
+    if (confirm('Çıkış yapmak istediğine emin misin? Veriler bu cihazda saklı kalmaya devam eder.')) {
+        firebase.auth().signOut().then(() => {
+            // Bellekteki state'i (önceki hesabın verilerini) tamamen temizlemek için sayfayı yenile.
+            // Böylece başka bir hesapla giriş yapıldığında eski hesabın verileri karışmaz.
+            location.reload();
+        });
+    }
+}
+
+function profilModalAc() {
+    if (!currentUser) return;
+    document.getElementById('profilEmail').textContent = currentUser.email || '';
+    let uyelikMetni = '';
+    if (currentUser.metadata && currentUser.metadata.creationTime) {
+        const tarih = new Date(currentUser.metadata.creationTime);
+        uyelikMetni = 'Üye: ' + tarih.toLocaleDateString('tr-TR', { year: 'numeric', month: 'long' });
+    }
+    document.getElementById('profilUyelikTarihi').textContent = uyelikMetni;
+    document.getElementById('profilBildirimDurumu').textContent = bildirimTercihiOkundu() ? 'Açık' : 'Kapalı';
+    document.getElementById('profilModal').classList.add('active');
+}
+function profilModalKapat() {
+    document.getElementById('profilModal').classList.remove('active');
 }
 
 function authModuKapat() {
@@ -1204,6 +1304,7 @@ document.addEventListener('keydown', (e) => {
     if (document.getElementById('discoverDetailModal').classList.contains('active')) discoverDetayKapat();
     if (document.getElementById('tagModal').classList.contains('active')) etiketModalKapat();
     if (document.getElementById('bildirimModal').classList.contains('active')) bildirimPaneliAcKapa();
+    if (document.getElementById('profilModal').classList.contains('active')) profilModalKapat();
     searchResults.classList.remove('active'); searchInput.setAttribute('aria-expanded','false');
 });
 
@@ -1488,7 +1589,7 @@ function karistir(dizi) {
 async function yukleKesifIzgara() {
     if (kesifYukleniyor || kesifYuklendi) return; // aynı anda birden fazla yükleme başlatma
     kesifYukleniyor = true;
-    const grid = document.getElementById('discoverGrid');
+    const grid = document.getElementById('discoverCarousels');
     if (discoverItems.length === 0) grid.innerHTML = '<div class="loading">Yükleniyor...</div>';
     try {
         tvSonSayfa = 0;
@@ -1587,35 +1688,65 @@ function renderPosterBg(posters) {
     requestAnimationFrame(() => bg.classList.add('loaded'));
 }
 
-function renderKesifIzgara() {
-    const grid = document.getElementById('discoverGrid');
-    // Zaten koleksiyonda olanları hiç gösterme — sadece henüz izlenmemiş/eklenmemiş içerik kalsın
-    const gosterilecekler = discoverItems.filter(item => !listedeVarMi(item.isim));
-
-    if (gosterilecekler.length === 0) {
-        grid.innerHTML = '<div class="loading">Daha fazla içerik getiriliyor...</div>';
-        kesifDahaFazlaGetir();
-        return;
-    }
-
-    grid.innerHTML = gosterilecekler.map((item) => `
-        <div class="discover-card" data-key="${escapeHtml(item.isim)}" role="button" tabindex="0">
-            <img class="discover-poster" src="${item.poster}" alt="">
-            <span class="discover-kategori">${item.kategori === 'Film' ? ICON_FILM : ICON_TV}</span>
-            <div class="discover-name"></div>
-        </div>
-    `).join('');
-    [...grid.querySelectorAll('.discover-card')].forEach((el, i) => {
-        const item = gosterilecekler[i];
+function kesifKartHTML(item) {
+    return `<div class="discover-card" data-key="${escapeHtml(item.isim)}" role="button" tabindex="0">
+        <img class="discover-poster" src="${item.poster}" alt="" loading="lazy">
+        <span class="discover-kategori">${item.kategori === 'Film' ? ICON_FILM : ICON_TV}</span>
+        <div class="discover-name"></div>
+    </div>`;
+}
+function kesifKartaOlayEkle(container, itemler) {
+    [...container.querySelectorAll('.discover-card')].forEach((el, i) => {
+        const item = itemler[i];
         el.querySelector('.discover-name').textContent = item.isim;
         el.addEventListener('click', () => discoverDetayAc(item));
         el.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); discoverDetayAc(item); }
         });
     });
+}
+function renderKesifIzgara() {
+    const alan = document.getElementById('discoverCarousels');
+    const gosterilecekler = discoverItems.filter(item => !listedeVarMi(item.isim));
+
+    if (gosterilecekler.length === 0) {
+        alan.innerHTML = '<div class="loading">Daha fazla içerik getiriliyor...</div>';
+        kesifDahaFazlaGetir();
+        return;
+    }
+
+    const trend = gosterilecekler.slice(0, 12);
+    const enYuksekPuanli = [...gosterilecekler].filter(d => d.rating).sort((a, b) => b.rating - a.rating).slice(0, 12);
+    const diziler = gosterilecekler.filter(d => d.kategori === 'Dizi').slice(0, 12);
+    const filmler = gosterilecekler.filter(d => d.kategori === 'Film').slice(0, 12);
+
+    const bolumler = [
+        { baslik: 'Şu An Trend', alt: 'Keşfet havuzundaki öne çıkanlar', itemler: trend },
+        { baslik: 'En Yüksek Puanlılar', alt: 'Puanı en yüksek yapımlar', itemler: enYuksekPuanli },
+        { baslik: 'Diziler', alt: 'Bölüm bölüm takip edebileceklerin', itemler: diziler },
+        { baslik: 'Filmler', alt: 'Tek seferde izlenecekler', itemler: filmler },
+    ].filter(b => b.itemler.length > 0);
+
+    alan.innerHTML = bolumler.map((b, bi) => `
+        <div class="kesif-section">
+            <div class="kesif-section-header">
+                <div>
+                    <div class="kesif-section-title">${escapeHtml(b.baslik)}</div>
+                    <div class="kesif-section-subtitle">${escapeHtml(b.alt)}</div>
+                </div>
+            </div>
+            <div class="kesif-carousel-row" id="kesifSatir${bi}">
+                ${b.itemler.map(kesifKartHTML).join('')}
+            </div>
+        </div>
+    `).join('');
+
+    bolumler.forEach((b, bi) => {
+        kesifKartaOlayEkle(document.getElementById('kesifSatir' + bi), b.itemler);
+    });
 
     // Havuz azaldıysa sessizce arka planda daha fazlasını getir (kullanıcı fark etmeden hazır olsun)
-    if (gosterilecekler.length < 15) kesifDahaFazlaGetir();
+    if (gosterilecekler.length < 30) kesifDahaFazlaGetir();
 }
 
 // ---- AI KONU ARA (Gemini) ----
@@ -1635,6 +1766,11 @@ document.getElementById('aiKonuInput').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); aiKonuAra(); }
 });
 
+function aiOnerilenKonuSecildi(konu) {
+    document.getElementById('aiKonuInput').value = konu;
+    document.getElementById('aiOnerilenKonular').style.display = 'none';
+    aiKonuAra();
+}
 async function aiKonuAra() {
     const konu = document.getElementById('aiKonuInput').value.trim();
     if (!konu) { toast('Bir konu yaz'); return; }
@@ -2306,10 +2442,10 @@ function renderStats() {
 
     // Üst özet kartları
     html += `<div class="stats" style="margin-bottom:24px;">
-        <div class="stat-card"><div class="stat-number">${toplam}</div><div class="stat-label">Toplam İçerik</div></div>
-        <div class="stat-card"><div class="stat-number">${ortalamaPuan || '—'}</div><div class="stat-label">Ortalama Puanın</div></div>
-        <div class="stat-card"><div class="stat-number">${izlendi}</div><div class="stat-label">İzlendi</div></div>
-        <div class="stat-card"><div class="stat-number">${buAy}</div><div class="stat-label">Bu Ay Eklenen</div></div>
+        <div class="stat-card"><div class="stat-card-icon" style="background:rgba(139,92,246,0.18);color:#a78bfa;">${ICON_LAYERS}</div><div class="stat-number">${toplam}</div><div class="stat-label">Toplam İçerik</div></div>
+        <div class="stat-card"><div class="stat-card-icon" style="background:rgba(250,204,21,0.18);color:#facc15;">${ICON_STAR}</div><div class="stat-number">${ortalamaPuan || '—'}</div><div class="stat-label">Ortalama Puanın</div></div>
+        <div class="stat-card"><div class="stat-card-icon" style="background:rgba(16,185,129,0.18);color:#34d399;">${ICON_CHECK_CIRCLE}</div><div class="stat-number">${izlendi}</div><div class="stat-label">İzlendi</div></div>
+        <div class="stat-card"><div class="stat-card-icon" style="background:rgba(59,130,246,0.18);color:#60a5fa;">${ICON_CALENDAR_PLUS}</div><div class="stat-number">${buAy}</div><div class="stat-label">Bu Ay Eklenen</div></div>
     </div>`;
 
     // Durum dağılımı
