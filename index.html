@@ -173,7 +173,8 @@
         -webkit-overflow-scrolling:touch; scrollbar-width:none;
     }
     .kesif-carousel-row::-webkit-scrollbar { display:none; }
-    .kesif-carousel-row .discover-card { flex:0 0 108px; scroll-snap-align:start; }
+    .kesif-carousel-row .discover-card { flex:0 0 108px; width:108px; scroll-snap-align:start; }
+    .kesif-carousel-row .discover-poster { display:block; width:108px; height:162px; aspect-ratio:unset; }
     .discover-poster {
         width:100%; aspect-ratio: 2/3; border-radius:12px; object-fit:cover;
         background:#2d2b55; border: 2px solid transparent; transition: all 0.2s ease;
@@ -229,6 +230,7 @@
         transition: all 0.2s ease; backdrop-filter: blur(8px);
     }
     .filter-btn.active { background: var(--accent-gradient); color: white; border-color: transparent; box-shadow: 0 4px 14px rgba(168,85,247,0.35); }
+    .filter-btn strong { font-weight:800; margin-right:4px; }
     .ai-preset-chip {
         padding: 7px 13px; border-radius:var(--radius-pill); border: 1px solid rgba(139,92,246,0.3);
         background: rgba(139,92,246,0.1); color: #c4b5fd; cursor: pointer; font-size:var(--text-xs); font-weight: 600;
@@ -403,7 +405,7 @@
                     <span id="bildirimNokta" style="display:none;position:absolute;top:4px;right:4px;width:8px;height:8px;border-radius:50%;background:#ec4899;"></span>
                 </button>
                 <button id="syncBtn" onclick="syncButonTiklandi()" style="background:rgba(30,25,60,0.55);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:8px 12px;color:#a99bd6;font-size:0.75em;font-weight:600;cursor:pointer;white-space:nowrap;backdrop-filter:blur(8px);display:flex;align-items:center;gap:6px;">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h.79a4.5 4.5 0 1 1 0 9Z"/></svg>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                     <span id="syncBtnLabel" style="max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Hesapsız</span>
                 </button>
             </div>
@@ -460,8 +462,16 @@
     <!-- KEŞİF SEKMESİ -->
     <div id="tabDiscover" class="hidden">
         <div class="discover-section">
-            <div class="discover-title">Keşfet</div>
-            <div class="discover-sub">Bir postere dokun, detaylarına ve fragmanına bak, istersen koleksiyonuna ekle</div>
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+                <div>
+                    <div class="discover-title">Keşfet</div>
+                    <div class="discover-sub">Bir postere dokun, detaylarına ve fragmanına bak, istersen koleksiyonuna ekle</div>
+                </div>
+                <button id="kesifYenileBtn" onclick="kesifIcerikDegistir()" title="Farklı içerikler göster" style="flex-shrink:0;background:rgba(30,25,60,0.55);border:1px solid rgba(255,255,255,0.1);border-radius:var(--radius-md);padding:9px 12px;color:#c4b5fd;cursor:pointer;display:flex;align-items:center;gap:6px;font-size:var(--text-xs);font-weight:700;white-space:nowrap;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg>
+                    Değiştir
+                </button>
+            </div>
 
             <div class="kesif-hero" id="kesifHero" style="display:none;" onclick="kesifHeroTiklandi()" role="button" tabindex="0">
                 <div class="kesif-hero-content">
@@ -481,17 +491,13 @@
 
     <!-- KOLEKSİYON SEKMESİ -->
     <div id="tabList" class="hidden">
-        <div class="stats">
-            <div class="stat-card"><div class="stat-number" id="statTotal">0</div><div class="stat-label">Toplam</div></div>
-            <div class="stat-card"><div class="stat-number" id="statTodo">0</div><div class="stat-label">İzlenecek</div></div>
-            <div class="stat-card"><div class="stat-number" id="statWatching">0</div><div class="stat-label">İzleniyor</div></div>
-            <div class="stat-card"><div class="stat-number" id="statDone">0</div><div class="stat-label">İzlendi</div></div>
-        </div>
         <div class="filters">
-            <button class="filter-btn active" data-filter="Tümü" onclick="filtreSec('Tümü')">Tümü</button>
-            <button class="filter-btn" data-filter="İzlenecek" onclick="filtreSec('İzlenecek')">İzlenecek</button>
-            <button class="filter-btn" data-filter="İzleniyor" onclick="filtreSec('İzleniyor')">İzleniyor</button>
-            <button class="filter-btn" data-filter="İzlendi" onclick="filtreSec('İzlendi')">İzlendi</button>
+            <button class="filter-btn active" data-filter="Tümü" onclick="filtreSec('Tümü')"><strong id="statTotal">0</strong> Tümü</button>
+            <button class="filter-btn" data-filter="İzlenecek" onclick="filtreSec('İzlenecek')"><strong id="statTodo">0</strong> İzlenecek</button>
+            <button class="filter-btn" data-filter="İzleniyor" onclick="filtreSec('İzleniyor')"><strong id="statWatching">0</strong> İzleniyor</button>
+            <button class="filter-btn" data-filter="İzlendi" onclick="filtreSec('İzlendi')"><strong id="statDone">0</strong> İzlendi</button>
+        </div>
+        <div class="filters" style="margin-top:-8px;">
             <button class="filter-btn" style="margin-left:auto;background:linear-gradient(135deg,#f59e0b,#ef4444);color:white;border:none;box-shadow:0 4px 14px rgba(239,68,68,0.3);" onclick="onerAc()">🎁 Öner</button>
             <button class="filter-btn" style="background:var(--accent-gradient);color:white;border:none;box-shadow:0 4px 14px rgba(168,85,247,0.35);" onclick="paylasimAc()">📤 Paylaş</button>
         </div>
@@ -502,8 +508,7 @@
         </div>
         <div class="filters" id="kategoriFiltreRow" style="margin-top:-8px;flex-wrap:wrap;"></div>
         <div class="filters" style="margin-top:-8px;">
-            <button class="filter-btn" onclick="jsonYedekle()" title="Koleksiyonunu bir dosyaya kaydet">⬇️ Yedekle</button>
-            <button class="filter-btn" onclick="document.getElementById('jsonImportInput').click()" title="Bir yedek dosyasından geri yükle">⬆️ Geri Yükle</button>
+
             <input type="file" id="jsonImportInput" accept="application/json" style="display:none;" onchange="jsonGeriYukle(event)">
         </div>
         <div class="content">
@@ -1630,6 +1635,21 @@ async function yukleKesifIzgara() {
 }
 
 let kesifDahaFazlaYukleniyor = false;
+async function kesifIcerikDegistir() {
+    const btn = document.getElementById('kesifYenileBtn');
+    btn.disabled = true;
+    btn.style.opacity = '0.6';
+    const eklenen = await kesifDahaFazlaGetir();
+    // Zaten gösterilenleri havuzun başından çıkarıp yeni gelenleri öne alalım ki "değiştir" gerçekten farklı içerik göstersin
+    if (eklenen > 0) {
+        discoverItems = [...discoverItems.slice(-eklenen), ...discoverItems.slice(0, discoverItems.length - eklenen)];
+        renderKesifIzgara();
+    } else {
+        toast('Yeni içerik bulunamadı, tekrar dene');
+    }
+    btn.disabled = false;
+    btn.style.opacity = '1';
+}
 async function kesifDahaFazlaGetir() {
     if (kesifDahaFazlaYukleniyor) return 0;
     kesifDahaFazlaYukleniyor = true;
@@ -1721,7 +1741,7 @@ function renderKesifIzgara() {
     const filmler = gosterilecekler.filter(d => d.kategori === 'Film').slice(0, 12);
 
     const bolumler = [
-        { baslik: 'Şu An Trend', alt: 'Keşfet havuzundaki öne çıkanlar', itemler: trend },
+        { baslik: 'Öne Çıkanlar', alt: 'Keşfet havuzundan seçtiklerimiz', itemler: trend },
         { baslik: 'En Yüksek Puanlılar', alt: 'Puanı en yüksek yapımlar', itemler: enYuksekPuanli },
         { baslik: 'Diziler', alt: 'Bölüm bölüm takip edebileceklerin', itemler: diziler },
         { baslik: 'Filmler', alt: 'Tek seferde izlenecekler', itemler: filmler },
