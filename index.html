@@ -1309,10 +1309,6 @@ document.addEventListener('keydown', (e) => {
     searchResults.classList.remove('active'); searchInput.setAttribute('aria-expanded','false');
 });
 
-// ---- API ÖNBELLEKLEME (aynı sorguyu tekrar tekrar internete gönderme) ----
-const API_CACHE_TTL = 1000 * 60 * 60 * 24; // 24 saat
-let apiCacheTemizlikSayaci = 0;
-
 // ---- API ÖNBELLEKLEME (aynı sorguyu tekrar tekrar internete gönderme) — IndexedDB üzerinde ----
 const API_CACHE_TTL = 1000 * 60 * 60 * 24; // 24 saat
 let apiCacheTemizlikSayaci = 0;
