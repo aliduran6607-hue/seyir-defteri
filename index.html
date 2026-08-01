@@ -142,6 +142,25 @@
     .discover-section { max-width:1200px; margin:0 auto 20px; padding:0 20px; }
     .discover-title { font-size:var(--text-xl); font-weight:800; margin-bottom:4px; letter-spacing:-0.01em; }
     .discover-sub { color:#a99bd6; font-size:var(--text-sm); margin-bottom:16px; font-weight:500; }
+    .arama-hero {
+        position:relative; border-radius: var(--radius-lg); overflow:hidden; height:220px;
+        margin-top:-14px; margin-bottom:16px; display:flex; align-items:flex-end; background-size:cover; background-position:center 20%;
+        cursor:pointer; transition: transform 0.25s ease; border:1px solid rgba(255,255,255,0.08);
+        box-shadow: 0 -50px 70px -25px rgba(2,6,23,0.85);
+    }
+    .arama-hero:hover { transform: translateY(-2px); }
+    .arama-hero::before {
+        content:''; position:absolute; inset:0;
+        background: linear-gradient(to top, rgba(2,6,23,1) 0%, rgba(2,6,23,0.75) 45%, rgba(2,6,23,0.25) 80%, rgba(2,6,23,0) 100%);
+    }
+    .arama-hero-content { position:relative; z-index:1; padding:18px; width:100%; }
+    .arama-hero-eyebrow {
+        display:inline-flex; align-items:center; gap:5px; font-size:var(--text-xs); font-weight:800; color:white;
+        background: var(--accent-gradient); text-transform:uppercase; letter-spacing:0.05em;
+        padding:3px 9px; border-radius:6px; margin-bottom:8px;
+    }
+    .arama-hero-title { font-size:var(--text-xl); font-weight:800; letter-spacing:-0.02em; line-height:1.15; }
+    .arama-hero-meta { font-size:var(--text-sm); color:#c9bce8; margin-top:6px; display:flex; align-items:center; gap:6px; }
     .discover-grid {
         display:grid; grid-template-columns: repeat(auto-fill, minmax(100px,1fr)); gap:12px;
     }
@@ -431,13 +450,8 @@
                 <button onclick="aiKonuAra()" id="aiAraBtn"
                     style="background:var(--accent-gradient);border:none;border-radius:16px;padding:0 18px;color:white;font-weight:700;cursor:pointer;white-space:nowrap;font-size:0.88em;">🤖 AI ile Ara</button>
             </div>
-            <div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:10px;" id="aiOnerilenKonular">
-                <button class="ai-preset-chip" onclick="aiOnerilenKonuSecildi('Aklını başından alacak ters köşe filmler')">Ters köşe filmler</button>
-                <button class="ai-preset-chip" onclick="aiOnerilenKonuSecildi('Sürükleyici psikolojik gerilim dizileri')">Psikolojik gerilim</button>
-                <button class="ai-preset-chip" onclick="aiOnerilenKonuSecildi('Hapishane ve kaçış temalı dramalar')">Hapishane kaçışı</button>
-                <button class="ai-preset-chip" onclick="aiOnerilenKonuSecildi('Karanlık atmosferli polisiye ve suç dizileri')">Karanlık polisiye</button>
-            </div>
             <div id="aiSonucBolumu" style="display:none;margin-top:18px;"></div>
+            <div id="aramaKesifAlani" style="margin-top:20px;"></div>
         </div>
     </div>
 
@@ -676,7 +690,18 @@
                 <img src="icon-192.png" alt="" style="width:64px;height:64px;border-radius:50%;border:2px solid var(--accent-500);box-shadow:0 4px 20px var(--accent-glow);">
                 <div style="font-weight:800;font-size:var(--text-lg);margin-top:10px;" id="profilEmail"></div>
                 <div style="font-size:var(--text-xs);color:#a99bd6;margin-top:2px;" id="profilUyelikTarihi"></div>
-                <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.35);color:#34d399;border-radius:var(--radius-pill);padding:5px 12px;font-size:var(--text-xs);font-weight:700;margin-top:10px;">
+                <div style="position:relative;display:inline-block;">
+                    <div id="profilRozet" onclick="rozetIpucuAcKapa()" style="display:inline-flex;align-items:center;gap:5px;background:rgba(250,204,21,0.15);border:1px solid rgba(250,204,21,0.35);color:#fbbf24;border-radius:var(--radius-pill);padding:5px 8px 5px 12px;font-size:var(--text-xs);font-weight:700;margin-top:8px;cursor:pointer;">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z"/></svg>
+                        <span id="profilRozetMetni"></span>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.7;margin-left:1px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                    </div>
+                    <div id="rozetIpucu" style="display:none;position:absolute;top:calc(100% + 8px);left:50%;transform:translateX(-50%);background:#171233;border:1px solid rgba(255,255,255,0.12);border-radius:var(--radius-md);padding:12px 14px;box-shadow:0 20px 45px rgba(0,0,0,0.5);z-index:40;width:230px;text-align:left;">
+                        <div style="font-size:var(--text-xs);font-weight:700;color:#c4b5fd;margin-bottom:8px;">Rozet Kademeleri (İzlendi sayısı)</div>
+                        <div id="rozetIpucuListesi" style="display:flex;flex-direction:column;gap:5px;font-size:var(--text-xs);color:#cbd5e1;"></div>
+                    </div>
+                </div>
+                <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.35);color:#34d399;border-radius:var(--radius-pill);padding:5px 12px;font-size:var(--text-xs);font-weight:700;margin-top:8px;">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h.79a4.5 4.5 0 1 1 0 9Z"/><path d="m9 12 2 2 4-4"/></svg>
                     Bulut Senkronizasyonu Aktif
                 </div>
@@ -851,6 +876,12 @@ const ICON_CHECK_CIRCLE = '<svg width="16" height="16" viewBox="0 0 24 24" fill=
 const ICON_CALENDAR_PLUS = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="12" y1="14" x2="12" y2="18"/><line x1="10" y1="16" x2="14" y2="16"/></svg>';
 const tmdbHazir = true; // Sunucu tarafında kurulup kurulmadığını her istek kendi içinde kontrol ediyor
 const TMDB_IMG = "https://image.tmdb.org/t/p/w300";
+const TMDB_TUR_HARITASI = {
+    28:'Aksiyon', 12:'Macera', 16:'Animasyon', 35:'Komedi', 80:'Suç', 99:'Belgesel',
+    18:'Dram', 10751:'Aile', 14:'Fantastik', 36:'Tarih', 27:'Korku', 10402:'Müzikal',
+    9648:'Gizem', 10749:'Romantik', 878:'Bilim Kurgu', 10770:'TV Filmi', 53:'Gerilim',
+    10752:'Savaş', 37:'Western'
+};
 function imgKucult(url, genislik) {
     if (!url || url.startsWith('data:')) return url;
     const temizUrl = url.replace(/^https?:\/\//, '');
@@ -946,6 +977,17 @@ function hesaptanCik() {
     }
 }
 
+const ROZET_KADEMELERI = [
+    { esik: 0, ad: 'Yeni Başlayan' },
+    { esik: 10, ad: 'Meraklı İzleyici' },
+    { esik: 30, ad: 'Deneyimli Sinefil' },
+    { esik: 75, ad: 'Usta Sinefil' },
+    { esik: 150, ad: 'Efsane Sinefil' },
+];
+function rozetIpucuAcKapa() {
+    const kutu = document.getElementById('rozetIpucu');
+    kutu.style.display = kutu.style.display === 'none' ? 'block' : 'none';
+}
 function profilModalAc() {
     if (!currentUser) return;
     document.getElementById('profilEmail').textContent = currentUser.email || '';
@@ -955,6 +997,18 @@ function profilModalAc() {
         uyelikMetni = 'Üye: ' + tarih.toLocaleDateString('tr-TR', { year: 'numeric', month: 'long' });
     }
     document.getElementById('profilUyelikTarihi').textContent = uyelikMetni;
+    const izlenenSayisi = veriler.filter(d => d.durum === 'İzlendi').length;
+    let rozet = ROZET_KADEMELERI[0].ad;
+    for (const k of ROZET_KADEMELERI) { if (izlenenSayisi >= k.esik) rozet = k.ad; }
+    document.getElementById('profilRozetMetni').textContent = rozet + ' · ' + izlenenSayisi + ' içerik';
+    document.getElementById('rozetIpucu').style.display = 'none';
+    document.getElementById('rozetIpucuListesi').innerHTML = ROZET_KADEMELERI.map((k, i) => {
+        const aktif = rozet === k.ad;
+        const araligi = ROZET_KADEMELERI[i + 1] ? `${k.esik}–${ROZET_KADEMELERI[i + 1].esik - 1}` : `${k.esik}+`;
+        return `<div style="display:flex;justify-content:space-between;gap:8px;${aktif ? 'color:#fbbf24;font-weight:700;' : ''}">
+            <span>${aktif ? '▸ ' : ''}${escapeHtml(k.ad)}</span><span>${araligi}</span>
+        </div>`;
+    }).join('');
     document.getElementById('profilBildirimDurumu').textContent = bildirimTercihiOkundu() ? 'Açık' : 'Kapalı';
     document.getElementById('profilModal').classList.add('active');
 }
@@ -1118,7 +1172,7 @@ function sekmeDegistir(tab) {
     document.getElementById('tabStatsBtn').setAttribute('aria-selected', tab === 'stats');
     if (tab === 'discover' && discoverItems.length === 0) yukleKesifIzgara();
     if (tab === 'list') guncelle();
-    if (tab === 'stats') renderStats();
+    if (tab === 'stats') { renderStats(); turleriGeriDoldur(); }
     if (tab === 'admin') adminVerileriYukle();
 }
 
@@ -1401,6 +1455,7 @@ async function aramaYap(query) {
             poster: item.show.image ? item.show.image.medium : '',
             yil: item.show.premiered ? item.show.premiered.split('-')[0] : '',
             tur: (item.show.genres && item.show.genres.length) ? item.show.genres[0] : 'Dizi',
+            turler: item.show.genres || [],
             kategori: 'Dizi',
             tvId: item.show.id
         }));
@@ -1424,6 +1479,7 @@ async function aramaYap(query) {
                 poster: item.poster_path ? (TMDB_IMG + item.poster_path) : '',
                 yil: item.release_date ? item.release_date.split('-')[0] : '',
                 tur: 'Film',
+                turler: (item.genre_ids || []).map(id => TMDB_TUR_HARITASI[id]).filter(Boolean),
                 kategori: 'Film',
                 tmdbId: item.id
             }));
@@ -1477,6 +1533,7 @@ function hizliEkle(item) {
         durum: 'İzlenecek',
         puan: null,
         kategoriler: [],
+        turler: item.turler || [],
         tvId: item.tvId || null,
         tmdbId: item.tmdbId || null,
         tarih: new Date().toLocaleDateString('tr-TR')
@@ -1558,6 +1615,7 @@ async function filmTopRatedGetir() {
                 poster: TMDB_IMG + f.poster_path,
                 rating: f.vote_average ? Math.round(f.vote_average * 10) / 10 : null,
                 imdb: null,
+                turler: (f.genre_ids || []).map(id => TMDB_TUR_HARITASI[id]).filter(Boolean),
                 kategori: 'Film',
                 tmdbId: f.id
             }));
@@ -1587,6 +1645,7 @@ async function tvTopRatedGetir() {
                     poster: TMDB_IMG + f.poster_path,
                     rating: f.vote_average ? Math.round(f.vote_average * 10) / 10 : null,
                     imdb: (tm.externals && tm.externals.imdb) ? tm.externals.imdb : null,
+                    turler: tm.genres || (f.genre_ids || []).map(id => TMDB_TUR_HARITASI[id]).filter(Boolean),
                     kategori: 'Dizi',
                     tvId: tm.id
                 };
@@ -1615,6 +1674,7 @@ async function tvSayfasiGetir(sayfa) {
                 poster: s.image.medium,
                 rating: s.rating && s.rating.average ? s.rating.average : null,
                 imdb: s.externals && s.externals.imdb ? s.externals.imdb : null,
+                turler: s.genres || [],
                 kategori: 'Dizi',
                 tvId: s.id
             }));
@@ -1639,6 +1699,7 @@ async function filmSayfasiGetir(sayfa) {
                 poster: TMDB_IMG + f.poster_path,
                 rating: f.vote_average ? Math.round(f.vote_average * 10) / 10 : null,
                 imdb: null,
+                turler: (f.genre_ids || []).map(id => TMDB_TUR_HARITASI[id]).filter(Boolean),
                 kategori: 'Film',
                 tmdbId: f.id
             }));
@@ -1746,6 +1807,151 @@ async function kesifManuelDahaFazla() {
     if (eklenen === 0) toast('Şu an için yeni içerik bulunamadı, tekrar dene');
 }
 
+async function tvmazeIdBul(isim) {
+    try {
+        const res = await fetch('https://api.tvmaze.com/singlesearch/shows?q=' + encodeURIComponent(isim));
+        if (!res.ok) return null;
+        const tm = await res.json();
+        return (tm && tm.id) ? tm.id : null;
+    } catch (e) { return null; }
+}
+
+async function buHaftaYeniGetir() {
+    if (!tmdbHazir) return [];
+    const bugun = new Date();
+    const yediGunOnce = new Date(bugun.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const fmt = (d) => d.toISOString().split('T')[0];
+    const cacheAnahtari = 'bu_hafta_yeni_' + fmt(bugun);
+    const onbellek = await apiCacheOku(cacheAnahtari);
+    if (onbellek) return onbellek;
+    try {
+        const [filmRes, tvRes] = await Promise.all([
+            fetch(TMDB_PROXY + '?' + new URLSearchParams({ endpoint: 'discover/movie', language: 'tr-TR', sort_by: 'popularity.desc', 'primary_release_date.gte': fmt(yediGunOnce), 'primary_release_date.lte': fmt(bugun) }).toString()),
+            fetch(TMDB_PROXY + '?' + new URLSearchParams({ endpoint: 'discover/tv', language: 'tr-TR', sort_by: 'popularity.desc', 'first_air_date.gte': fmt(yediGunOnce), 'first_air_date.lte': fmt(bugun) }).toString())
+        ]);
+        const filmVeri = filmRes.ok ? await filmRes.json() : { results: [] };
+        const tvVeri = tvRes.ok ? await tvRes.json() : { results: [] };
+        const filmler = (filmVeri.results || []).filter(f => f.poster_path).slice(0, 8).map(f => ({
+            isim: f.title || f.original_title, poster: TMDB_IMG + f.poster_path,
+            rating: f.vote_average ? Math.round(f.vote_average * 10) / 10 : null,
+            turler: (f.genre_ids || []).map(id => TMDB_TUR_HARITASI[id]).filter(Boolean),
+            kategori: 'Film', tmdbId: f.id
+        }));
+        // Diziler için TVMaze eşleşmesi de bulunuyor (bölüm takibi/bildirim için gerekli)
+        const diziAdaylari = (tvVeri.results || []).filter(f => f.poster_path).slice(0, 8);
+        const diziler = (await Promise.all(diziAdaylari.map(async (f) => {
+            const tvId = await tvmazeIdBul(f.name);
+            if (!tvId) return null;
+            return {
+                isim: f.name, poster: TMDB_IMG + f.poster_path,
+                rating: f.vote_average ? Math.round(f.vote_average * 10) / 10 : null,
+                turler: (f.genre_ids || []).map(id => TMDB_TUR_HARITASI[id]).filter(Boolean),
+                kategori: 'Dizi', tvId
+            };
+        }))).filter(Boolean);
+        const sonuc = karistir([...filmler, ...diziler]);
+        await apiCacheYaz(cacheAnahtari, sonuc);
+        return sonuc;
+    } catch (e) { return []; }
+}
+
+function enCokIzlenenTurBul() {
+    const sayilar = {};
+    veriler.forEach(d => { [...(d.turler || []), ...(d.kategoriler || [])].forEach(k => { sayilar[k] = (sayilar[k] || 0) + 1; }); });
+    const siralanmis = Object.entries(sayilar).sort((a, b) => b[1] - a[1]);
+    return siralanmis.length > 0 ? siralanmis[0][0] : null;
+}
+
+const ARAMA_KESIF_TURLERI = ['Aksiyon', 'Dram', 'Komedi', 'Bilim Kurgu', 'Korku', 'Romantik', 'Gerilim'];
+let aramaKesifYuklendi = false;
+let aramaKesifHavuzu = [];
+let aramaKesifAktifTur = 'Tümü';
+
+async function aramaKesifYukle() {
+    if (aramaKesifYuklendi) return;
+    aramaKesifYuklendi = true;
+    const alan = document.getElementById('aramaKesifAlani');
+    alan.innerHTML = '<div class="loading">Yükleniyor...</div>';
+    try {
+        const [tvSayfa, filmSayfa, buHafta] = await Promise.all([tvSayfasiGetir(1), filmSayfasiGetir(1), buHaftaYeniGetir()]);
+        aramaKesifHavuzu = karistir([...tvSayfa, ...filmSayfa]);
+        window._buHaftaYeniListe = buHafta;
+        renderAramaKesif();
+    } catch (e) {
+        alan.innerHTML = '';
+        aramaKesifYuklendi = false;
+    }
+}
+
+function aramaTurSec(tur) {
+    aramaKesifAktifTur = tur;
+    renderAramaKesif();
+}
+
+function renderAramaKesif() {
+    const alan = document.getElementById('aramaKesifAlani');
+    const eklenmemis = (liste) => liste.filter(item => !listedeVarMi(item.isim));
+    const tureGoreSuz = (liste) => aramaKesifAktifTur === 'Tümü' ? liste : liste.filter(item => (item.turler || []).includes(aramaKesifAktifTur));
+
+    const trendler = tureGoreSuz(eklenmemis(aramaKesifHavuzu)).slice(0, 12);
+    const buHaftaYeni = tureGoreSuz(eklenmemis(window._buHaftaYeniListe || [])).slice(0, 12);
+    const enCokTur = enCokIzlenenTurBul();
+    const izlediklerineGore = enCokTur
+        ? tureGoreSuz(eklenmemis(aramaKesifHavuzu).filter(item => (item.turler || []).includes(enCokTur))).slice(0, 12)
+        : [];
+
+    // Hero: havuzdaki en yüksek puanlı içerik
+    const heroAdaylari = eklenmemis(aramaKesifHavuzu).filter(d => d.rating);
+    const hero = heroAdaylari.length > 0 ? heroAdaylari.reduce((en, d) => d.rating > en.rating ? d : en) : null;
+
+    let html = '';
+    if (hero) {
+        html += `<div class="arama-hero" style="background-image:url('${imgKucult(hero.poster, 500)}');" onclick='discoverDetayAcId(${JSON.stringify(hero.isim)})'>
+            <div class="arama-hero-content">
+                <div class="arama-hero-eyebrow">${ICON_STAR} Öne Çıkan</div>
+                <div class="arama-hero-title">${escapeHtml(hero.isim)}</div>
+                <div class="arama-hero-meta">${hero.kategori} ${hero.turler && hero.turler.length ? '· ' + escapeHtml(hero.turler.slice(0,2).join(', ')) : ''} · ${ICON_STAR} ${hero.rating}</div>
+            </div>
+        </div>`;
+    }
+
+    html += `<div style="display:flex;gap:7px;overflow-x:auto;padding-bottom:6px;margin-bottom:18px;" class="kesif-carousel-row">
+        ${['Tümü', ...ARAMA_KESIF_TURLERI].map(t => `<button class="filter-btn ${aramaKesifAktifTur === t ? 'active' : ''}" style="flex-shrink:0;" onclick="aramaTurSec('${t}')">${t}</button>`).join('')}
+    </div>`;
+
+    const bolumler = [
+        { baslik: 'Güncel Trendler', alt: 'Şu an popüler dizi ve filmler', itemler: trendler },
+        { baslik: 'Bu Hafta Yeni', alt: 'Platformlara yeni eklenenler', itemler: buHaftaYeni },
+        { baslik: 'İzlediklerinize Göre', alt: enCokTur ? `${enCokTur} sevenler için seçkiler` : '', itemler: izlediklerineGore },
+    ].filter(b => b.itemler.length > 0);
+
+    html += bolumler.map((b, bi) => `
+        <div class="kesif-section">
+            <div class="kesif-section-header">
+                <div>
+                    <div class="kesif-section-title">${escapeHtml(b.baslik)}</div>
+                    <div class="kesif-section-subtitle">${escapeHtml(b.alt)}</div>
+                </div>
+            </div>
+            <div class="kesif-carousel-row" id="aramaSatir${bi}">
+                ${b.itemler.map(kesifKartHTML).join('')}
+            </div>
+        </div>
+    `).join('');
+
+    if (bolumler.length === 0) {
+        html += '<div class="empty">Bu türde henüz gösterilecek içerik yok.</div>';
+    }
+
+    alan.innerHTML = html;
+    bolumler.forEach((b, bi) => kesifKartaOlayEkle(document.getElementById('aramaSatir' + bi), b.itemler));
+}
+
+function discoverDetayAcId(isim) {
+    const item = [...aramaKesifHavuzu, ...(window._buHaftaYeniListe || [])].find(d => d.isim === isim);
+    if (item) discoverDetayAc(item);
+}
+
 function renderPosterBg(posters) {
     const bg = document.getElementById('posterBg');
     if (!posters || posters.length === 0) return;
@@ -1843,7 +2049,6 @@ document.getElementById('aiKonuInput').addEventListener('keydown', (e) => {
 
 function aiOnerilenKonuSecildi(konu) {
     document.getElementById('aiKonuInput').value = konu;
-    document.getElementById('aiOnerilenKonular').style.display = 'none';
     aiKonuAra();
 }
 async function aiKonuAra() {
@@ -2156,6 +2361,7 @@ function discoverDetayEkle() {
         durum: 'İzlendi',
         puan: null,
         kategoriler: [],
+        turler: discoverDetayItem.turler || [],
         tvId: discoverDetayItem.tvId || null,
         tmdbId: discoverDetayItem.tmdbId || null,
         tarih: new Date().toLocaleDateString('tr-TR')
@@ -2482,6 +2688,41 @@ function jsonGeriYukle(event) {
 }
 
 // ---- İSTATİSTİKLER ----
+let turGeriDolduruluyor = false;
+async function turleriGeriDoldur() {
+    if (turGeriDolduruluyor) return;
+    const eksikler = veriler.filter(d => (!d.turler || d.turler.length === 0) && (d.tvId || d.tmdbId));
+    if (eksikler.length === 0) return;
+    turGeriDolduruluyor = true;
+    let degisiklikOldu = false;
+    const PARCA = 5; // aynı anda en fazla 5 istek — API'leri yormayalım
+    for (let i = 0; i < eksikler.length; i += PARCA) {
+        const parca = eksikler.slice(i, i + PARCA);
+        await Promise.all(parca.map(async (d) => {
+            try {
+                const cacheAnahtari = 'turler_' + (d.tvId ? 'tv' + d.tvId : 'film' + d.tmdbId);
+                let turler = await apiCacheOku(cacheAnahtari);
+                if (!turler) {
+                    if (d.tvId) {
+                        const res = await fetch('https://api.tvmaze.com/shows/' + d.tvId);
+                        if (res.ok) { const s = await res.json(); turler = s.genres || []; }
+                    } else if (d.tmdbId && tmdbHazir) {
+                        const res = await fetch(TMDB_PROXY + '?' + new URLSearchParams({ endpoint: 'movie/' + d.tmdbId, language: 'tr-TR' }).toString());
+                        if (res.ok) { const f = await res.json(); turler = (f.genres || []).map(g => g.name); }
+                    }
+                    if (turler) await apiCacheYaz(cacheAnahtari, turler);
+                }
+                if (turler && turler.length > 0) { d.turler = turler; degisiklikOldu = true; }
+            } catch (e) { /* bu öğeyi atla, devam et */ }
+        }));
+    }
+    turGeriDolduruluyor = false;
+    if (degisiklikOldu) {
+        kaydet();
+        if (!document.getElementById('tabStats').classList.contains('hidden')) renderStats();
+    }
+}
+
 function renderStats() {
     const container = document.getElementById('statsContent');
     if (veriler.length === 0) {
@@ -2519,7 +2760,34 @@ function renderStats() {
     // En yüksek puanlı 5 içerik
     const enYuksek = [...puanlilar].sort((a,b) => b.puan - a.puan).slice(0, 5);
 
+    // Tür dağılımı — TMDB/TVMaze'den otomatik çekilen türler + kullanıcının elle eklediği etiketler birlikte
+    const etiketSayilari = {};
+    veriler.forEach(d => {
+        const hepsi = [...(d.turler || []), ...(d.kategoriler || [])];
+        hepsi.forEach(k => { etiketSayilari[k] = (etiketSayilari[k] || 0) + 1; });
+    });
+    const enCokTurler = Object.entries(etiketSayilari).sort((a, b) => b[1] - a[1]).slice(0, 2);
+
     let html = '';
+
+    // İzleme Profili Analizi
+    if (enCokTurler.length > 0) {
+        const turMetni = enCokTurler.map(t => t[0]).join(' ve ');
+        html += `<div style="background:rgba(30,25,60,0.55);border:1px solid var(--accent-500);border-radius:var(--radius-lg);padding:16px;margin-bottom:20px;display:flex;gap:14px;align-items:center;">
+            <div style="width:44px;height:44px;border-radius:50%;background:rgba(139,92,246,0.18);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#c4b5fd" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 4.6-4.6.4 3.5 3-1 4.5 4-2.4 4 2.4-1-4.5 3.5-3-4.6-.4Z"/></svg>
+            </div>
+            <div>
+                <div style="font-size:var(--text-xs);font-weight:700;color:#c4b5fd;">İzleme Profili Analizi</div>
+                <div style="font-weight:800;font-size:var(--text-base);margin-top:2px;">${escapeHtml(turMetni)} Tutkunu</div>
+                <div style="font-size:var(--text-xs);color:#a99bd6;margin-top:3px;">${veriler.filter(d=>(d.turler&&d.turler.length)||(d.kategoriler&&d.kategoriler.length)).length} içeriğine göre en çok tercih ettiğin türler bunlar</div>
+            </div>
+        </div>`;
+    } else {
+        html += `<div style="background:rgba(30,25,60,0.4);border:1px dashed rgba(255,255,255,0.15);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:20px;font-size:var(--text-sm);color:#a99bd6;">
+            💡 Yeni eklediğin içeriklerin türü artık otomatik kaydediliyor — birkaç ekleme sonra burada gerçek izleme profili analizini göreceksin. (Daha önce eklediklerine tür etiketi de ekleyebilirsin.)
+        </div>`;
+    }
 
     // Üst özet kartları
     html += `<div class="stats" style="margin-bottom:24px;">
@@ -3265,6 +3533,7 @@ async function benzerleriBul() {
 
 guncelle();
 yukleKesifIzgara(); // arka plan poster teması ve keşif ızgarasını baştan yükle
+aramaKesifYukle(); // Ara & Ekle sekmesindeki trend/yeni/kişisel içerikleri baştan yükle
 firebaseBaslat(); // bulut senkronu (yapılandırılmışsa)
 
 if ('serviceWorker' in navigator) {
