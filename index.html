@@ -49,7 +49,7 @@
         -webkit-font-smoothing: antialiased;
     }
     #posterBg {
-        position: fixed; inset: 0; z-index: -2;
+        position: fixed; inset: 0; z-index: -3;
         display: flex; flex-wrap: wrap; overflow: hidden;
         opacity: 0; transition: opacity 1.4s ease;
     }
@@ -59,9 +59,19 @@
         filter: blur(0.3px) brightness(0.85) saturate(1.1);
     }
     #posterBgOverlay {
-        position: fixed; inset: 0; z-index: -1;
+        position: fixed; inset: 0; z-index: -2;
         background: linear-gradient(160deg, rgba(10,10,26,0.72) 0%, rgba(30,20,60,0.68) 45%, rgba(10,10,26,0.82) 100%);
         backdrop-filter: blur(1px);
+    }
+    #aramaHeroBackdrop {
+        position: fixed; top:0; left:0; right:0; height: 480px; z-index: -1;
+        background-size: cover; background-position: center 15%;
+        opacity: 0; transition: opacity 0.6s ease; pointer-events: none;
+    }
+    #aramaHeroBackdrop.visible { opacity: 1; }
+    #aramaHeroBackdrop::after {
+        content:''; position:absolute; inset:0;
+        background: linear-gradient(to bottom, rgba(2,6,23,0.45) 0%, rgba(2,6,23,0.6) 32%, rgba(9,8,22,0.97) 70%, #0a0a1a 92%);
     }
     .header { padding: 32px 20px 20px; max-width: 1200px; margin: 0 auto; }
     .header h1 {
@@ -77,7 +87,7 @@
 
     .tabs {
         position: fixed; left:0; right:0; bottom:0; z-index:150;
-        display:grid; grid-template-columns: repeat(4, 1fr); gap:4px;
+        display:grid; grid-template-columns: repeat(5, 1fr); gap:4px;
         padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
         background: rgba(15,12,30,0.85); backdrop-filter: blur(16px);
         border-top: 1px solid rgba(255,255,255,0.08);
@@ -142,18 +152,7 @@
     .discover-section { max-width:1200px; margin:0 auto 20px; padding:0 20px; }
     .discover-title { font-size:var(--text-xl); font-weight:800; margin-bottom:4px; letter-spacing:-0.01em; }
     .discover-sub { color:#a99bd6; font-size:var(--text-sm); margin-bottom:16px; font-weight:500; }
-    .arama-hero {
-        position:relative; border-radius: var(--radius-lg); overflow:hidden; height:220px;
-        margin-top:-14px; margin-bottom:16px; display:flex; align-items:flex-end; background-size:cover; background-position:center 20%;
-        cursor:pointer; transition: transform 0.25s ease; border:1px solid rgba(255,255,255,0.08);
-        box-shadow: 0 -50px 70px -25px rgba(2,6,23,0.85);
-    }
-    .arama-hero:hover { transform: translateY(-2px); }
-    .arama-hero::before {
-        content:''; position:absolute; inset:0;
-        background: linear-gradient(to top, rgba(2,6,23,1) 0%, rgba(2,6,23,0.75) 45%, rgba(2,6,23,0.25) 80%, rgba(2,6,23,0) 100%);
-    }
-    .arama-hero-content { position:relative; z-index:1; padding:18px; width:100%; }
+    .arama-hero-content { padding: 130px 0 20px; position:relative; }
     .arama-hero-eyebrow {
         display:inline-flex; align-items:center; gap:5px; font-size:var(--text-xs); font-weight:800; color:white;
         background: var(--accent-gradient); text-transform:uppercase; letter-spacing:0.05em;
@@ -391,6 +390,7 @@
 <body>
     <div id="posterBg"></div>
     <div id="posterBgOverlay"></div>
+    <div id="aramaHeroBackdrop"></div>
     <div class="header">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">
             <div>
@@ -430,6 +430,10 @@
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6"/><rect x="12" y="8" width="3" height="10"/><rect x="17" y="5" width="3" height="13"/></svg>
             <span>İstatistik</span>
         </button>
+        <button class="tab-btn" id="tabProfilBtn" onclick="syncButonTiklandi()">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <span>Profil</span>
+        </button>
     </div>
 
     <!-- ARAMA SEKMESİ -->
@@ -445,10 +449,13 @@
 
         <div class="discover-section" style="margin-top:22px;">
             <div style="display:flex;gap:8px;">
-                <input type="text" id="aiKonuInput" placeholder="🤖 Konu yaz (örn: hapishane kaçışı, aldatma, savaş)" autocomplete="off"
+                <input type="text" id="aiKonuInput" placeholder="Konu yaz (örn: hapishane kaçışı, aldatma, savaş)" autocomplete="off"
                     style="flex:1;min-width:0;background:rgba(30,25,60,0.55);border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:14px 16px;color:#fff;font-size:0.9em;">
                 <button onclick="aiKonuAra()" id="aiAraBtn"
-                    style="background:var(--accent-gradient);border:none;border-radius:16px;padding:0 18px;color:white;font-weight:700;cursor:pointer;white-space:nowrap;font-size:0.88em;">🤖 AI ile Ara</button>
+                    style="background:var(--accent-gradient);border:none;border-radius:16px;padding:0 18px;color:white;font-weight:700;cursor:pointer;white-space:nowrap;font-size:0.88em;display:flex;align-items:center;gap:7px;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="flex-shrink:0;"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.287 1.288L3 12l5.8 1.9a2 2 0 0 1 1.288 1.287L12 21l1.9-5.8a2 2 0 0 1 1.287-1.288L21 12l-5.8-1.9a2 2 0 0 1-1.288-1.287Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
+                    <span id="aiAraBtnLabel">AI ile Ara</span>
+                </button>
             </div>
             <div id="aiSonucBolumu" style="display:none;margin-top:18px;"></div>
             <div id="aramaKesifAlani" style="margin-top:20px;"></div>
@@ -728,7 +735,8 @@
                 </button>
             </div>
 
-            <div style="text-align:center;font-size:var(--text-xs);color:#6b6485;margin-bottom:18px;">Seyir Defteri</div>
+            <div style="text-align:center;font-size:var(--text-xs);color:#6b6485;margin-bottom:2px;">Seyir Defteri</div>
+            <div style="text-align:center;font-size:var(--text-xs);color:#6b6485;margin-bottom:18px;">Created by Muhammed Ali Duran</div>
 
             <div class="modal-buttons">
                 <button class="btn-cancel" onclick="profilModalKapat()">Kapat</button>
@@ -1161,6 +1169,8 @@ function sekmeDegistir(tab) {
     document.getElementById('tabList').classList.toggle('hidden', tab !== 'list');
     document.getElementById('tabStats').classList.toggle('hidden', tab !== 'stats');
     document.getElementById('tabAdmin').classList.toggle('hidden', tab !== 'admin');
+    if (tab !== 'search') document.getElementById('aramaHeroBackdrop').classList.remove('visible');
+    else if (window._aramaHeroVarMi) document.getElementById('aramaHeroBackdrop').classList.add('visible');
     document.getElementById('tabSearchBtn').classList.toggle('active', tab === 'search');
     document.getElementById('tabDiscoverBtn').classList.toggle('active', tab === 'discover');
     document.getElementById('tabListBtn').classList.toggle('active', tab === 'list');
@@ -1425,9 +1435,13 @@ function cssEscape(str) {
     return String(str).replace(/([!"#$%&'()*+,\-./:;<=>?@[\\\]^`{|}~])/g, '\\$1');
 }
 
-function listedeVarMi(isim) {
+function listedeVarMi(isim, kategori) {
     const temiz = isim.trim().toLocaleLowerCase('tr');
-    return veriler.some(d => d.isim.trim().toLocaleLowerCase('tr') === temiz);
+    return veriler.some(d => {
+        if (d.isim.trim().toLocaleLowerCase('tr') !== temiz) return false;
+        if (kategori && d.tur) return d.tur === kategori;
+        return true; // kategori bilinmiyorsa eski davranış (sadece isim) — geri uyumluluk için
+    });
 }
 
 let aramaController = null;
@@ -1491,7 +1505,7 @@ async function aramaYap(query) {
             return;
         }
         searchResults.innerHTML = currentResults.map((r, idx) => {
-            const ekli = listedeVarMi(r.name);
+            const ekli = listedeVarMi(r.name, r.kategori);
             const rozet = r.kategori === 'Film' ? ICON_FILM : ICON_TV;
             return `
             <div class="result-item" data-idx="${idx}" style="${ekli ? 'opacity:0.55;' : ''}">
@@ -1521,7 +1535,7 @@ async function aramaYap(query) {
 const KATEGORI_LISTESI = ['Polisiye', 'Hapishane', 'Sitcom', 'Bilim Kurgu', 'Tarih', 'Macera', 'Aksiyon', 'Savaş', 'Komedi', 'Dram', 'Romantik', 'Korku', 'Gizem', 'Fantastik', 'Belgesel', 'Animasyon', 'Gerilim', 'Müzikal', 'Suç', 'Biyografi', 'Aile'];
 
 function hizliEkle(item) {
-    if (listedeVarMi(item.name)) {
+    if (listedeVarMi(item.name, item.kategori)) {
         toast(item.name + ' zaten listende ✓');
         return;
     }
@@ -1571,7 +1585,7 @@ function manuelEkleKaydet() {
     const posterHam = document.getElementById('mPoster').value.trim();
     const tur = document.getElementById('mTur').value;
     if (!isim) { alert('Lütfen bir ad gir'); return; }
-    if (listedeVarMi(isim)) { toast(isim + ' zaten listende ✓'); manuelEkleKapat(); return; }
+    if (listedeVarMi(isim, tur)) { toast(isim + ' zaten listende ✓'); manuelEkleKapat(); return; }
     // Poster alanı serbest metin girişi olduğu için doğrulanmadan HTML'e basılmaması gerekiyor —
     // geçerli bir http(s)/data URL değilse placeholder'a düş (güvenlik + hatalı girişe karşı koruma)
     const poster = gecerliPosterUrlMu(posterHam) ? posterHam : placeholderUrl(isim);
@@ -1685,7 +1699,7 @@ async function tvSayfasiGetir(sayfa) {
 
 async function filmSayfasiGetir(sayfa) {
     if (!tmdbHazir) return [];
-    const cacheAnahtari = 'kesif_film_sayfa_v2_' + sayfa;
+    const cacheAnahtari = 'kesif_film_sayfa_v3_' + sayfa;
     const onbellek = await apiCacheOku(cacheAnahtari);
     if (onbellek) return onbellek;
     try {
@@ -1698,6 +1712,7 @@ async function filmSayfasiGetir(sayfa) {
                 isim: f.original_title || f.title,
                 poster: TMDB_IMG + f.poster_path,
                 rating: f.vote_average ? Math.round(f.vote_average * 10) / 10 : null,
+                oySayisi: f.vote_count || 0,
                 imdb: null,
                 turler: (f.genre_ids || []).map(id => TMDB_TUR_HARITASI[id]).filter(Boolean),
                 kategori: 'Film',
@@ -1862,7 +1877,7 @@ function enCokIzlenenTurBul() {
     return siralanmis.length > 0 ? siralanmis[0][0] : null;
 }
 
-const ARAMA_KESIF_TURLERI = ['Aksiyon', 'Dram', 'Komedi', 'Bilim Kurgu', 'Korku', 'Romantik', 'Gerilim'];
+const ARAMA_KESIF_TURLERI = ['Aksiyon', 'Dram', 'Komedi', 'Bilim Kurgu', 'Suç', 'Gerilim', 'Animasyon', 'Tarih'];
 let aramaKesifYuklendi = false;
 let aramaKesifHavuzu = [];
 let aramaKesifAktifTur = 'Tümü';
@@ -1874,7 +1889,14 @@ async function aramaKesifYukle() {
     alan.innerHTML = '<div class="loading">Yükleniyor...</div>';
     try {
         const [tvSayfa, filmSayfa, buHafta] = await Promise.all([tvSayfasiGetir(1), filmSayfasiGetir(1), buHaftaYeniGetir()]);
-        aramaKesifHavuzu = karistir([...tvSayfa, ...filmSayfa]);
+        // Gerçek "trend" sırasını korumak için karıştırmıyoruz — TMDB/TVMaze zaten popülerliğe göre sıralı veriyor.
+        // Dizi ve filmi sırayla iç içe geçiriyoruz (ikisi de kendi popülerlik sırasını korur).
+        aramaKesifHavuzu = [];
+        const maxUzunluk = Math.max(tvSayfa.length, filmSayfa.length);
+        for (let i = 0; i < maxUzunluk; i++) {
+            if (tvSayfa[i]) aramaKesifHavuzu.push(tvSayfa[i]);
+            if (filmSayfa[i]) aramaKesifHavuzu.push(filmSayfa[i]);
+        }
         window._buHaftaYeniListe = buHafta;
         renderAramaKesif();
     } catch (e) {
@@ -1883,6 +1905,9 @@ async function aramaKesifYukle() {
     }
 }
 
+function aramaKesifYenile() {
+    renderAramaKesif();
+}
 function aramaTurSec(tur) {
     aramaKesifAktifTur = tur;
     renderAramaKesif();
@@ -1890,7 +1915,7 @@ function aramaTurSec(tur) {
 
 function renderAramaKesif() {
     const alan = document.getElementById('aramaKesifAlani');
-    const eklenmemis = (liste) => liste.filter(item => !listedeVarMi(item.isim));
+    const eklenmemis = (liste) => liste.filter(item => !listedeVarMi(item.isim, item.kategori));
     const tureGoreSuz = (liste) => aramaKesifAktifTur === 'Tümü' ? liste : liste.filter(item => (item.turler || []).includes(aramaKesifAktifTur));
 
     const trendler = tureGoreSuz(eklenmemis(aramaKesifHavuzu)).slice(0, 12);
@@ -1900,19 +1925,35 @@ function renderAramaKesif() {
         ? tureGoreSuz(eklenmemis(aramaKesifHavuzu).filter(item => (item.turler || []).includes(enCokTur))).slice(0, 12)
         : [];
 
-    // Hero: havuzdaki en yüksek puanlı içerik
-    const heroAdaylari = eklenmemis(aramaKesifHavuzu).filter(d => d.rating);
-    const hero = heroAdaylari.length > 0 ? heroAdaylari.reduce((en, d) => d.rating > en.rating ? d : en) : null;
+    // Hero: gerçekten şu an trend olan (havuzun en başındaki, yani en popüler) 5 aday arasından seç.
+    // Puana göre sıralamıyoruz — yüksek puanlı ama eski/güncel olmayan içerik "trend" değildir.
+    const heroAdaylari = eklenmemis(aramaKesifHavuzu)
+        .filter(d => d.rating && (d.oySayisi === undefined || d.oySayisi >= 50))
+        .slice(0, 5);
+    const hero = heroAdaylari.length > 0 ? heroAdaylari[Math.floor(Math.random() * heroAdaylari.length)] : null;
 
+    const backdrop = document.getElementById('aramaHeroBackdrop');
+    window._aramaHeroVarMi = !!hero;
     let html = '';
     if (hero) {
-        html += `<div class="arama-hero" style="background-image:url('${imgKucult(hero.poster, 500)}');" onclick='discoverDetayAcId(${JSON.stringify(hero.isim)})'>
-            <div class="arama-hero-content">
-                <div class="arama-hero-eyebrow">${ICON_STAR} Öne Çıkan</div>
+        backdrop.style.backgroundImage = `url('${imgKucult(hero.poster, 600)}')`;
+        backdrop.classList.add('visible');
+        html += `<div class="arama-hero-content">
+                <div style="display:flex;align-items:center;justify-content:space-between;">
+                    <div class="arama-hero-eyebrow">${ICON_STAR} Öne Çıkan</div>
+                    <button onclick='event.stopPropagation();aramaKesifYenile()' title="Farklı içerik göster" style="background:rgba(30,25,60,0.6);border:1px solid rgba(255,255,255,0.15);border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;color:#c4b5fd;cursor:pointer;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg>
+                    </button>
+                </div>
                 <div class="arama-hero-title">${escapeHtml(hero.isim)}</div>
-                <div class="arama-hero-meta">${hero.kategori} ${hero.turler && hero.turler.length ? '· ' + escapeHtml(hero.turler.slice(0,2).join(', ')) : ''} · ${ICON_STAR} ${hero.rating}</div>
-            </div>
-        </div>`;
+                <div class="arama-hero-meta">${ICON_STAR} ${hero.rating} / 10 · ${hero.kategori} ${hero.turler && hero.turler.length ? '· ' + escapeHtml(hero.turler.slice(0,2).join(', ')) : ''}</div>
+                <div style="display:flex;gap:10px;margin-top:14px;">
+                    <button onclick='discoverDetayAcId(${JSON.stringify(hero.isim)})' style="flex:1;background:var(--accent-gradient);border:none;border-radius:var(--radius-pill);padding:11px;color:white;font-weight:700;font-size:var(--text-sm);cursor:pointer;">Detayları İncele</button>
+                    <button onclick='event.stopPropagation();aramaHeroHizliEkle(${JSON.stringify(hero.isim)})' style="flex:1;background:rgba(255,255,255,0.08);border:1px solid var(--accent-400);border-radius:var(--radius-pill);padding:11px;color:var(--accent-400);font-weight:700;font-size:var(--text-sm);cursor:pointer;">İzleneceklere Ekle</button>
+                </div>
+            </div>`;
+    } else {
+        backdrop.classList.remove('visible');
     }
 
     html += `<div style="display:flex;gap:7px;overflow-x:auto;padding-bottom:6px;margin-bottom:18px;" class="kesif-carousel-row">
@@ -1947,6 +1988,12 @@ function renderAramaKesif() {
     bolumler.forEach((b, bi) => kesifKartaOlayEkle(document.getElementById('aramaSatir' + bi), b.itemler));
 }
 
+function aramaHeroHizliEkle(isim) {
+    const item = [...aramaKesifHavuzu, ...(window._buHaftaYeniListe || [])].find(d => d.isim === isim);
+    if (!item) return;
+    hizliEkle({ name: item.isim, poster: item.poster, kategori: item.kategori, tvId: item.tvId, tmdbId: item.tmdbId, turler: item.turler });
+    renderAramaKesif();
+}
 function discoverDetayAcId(isim) {
     const item = [...aramaKesifHavuzu, ...(window._buHaftaYeniListe || [])].find(d => d.isim === isim);
     if (item) discoverDetayAc(item);
@@ -1983,7 +2030,7 @@ function kesifKartaOlayEkle(container, itemler) {
 }
 function renderKesifIzgara() {
     const alan = document.getElementById('discoverCarousels');
-    const gosterilecekler = discoverItems.filter(item => !listedeVarMi(item.isim));
+    const gosterilecekler = discoverItems.filter(item => !listedeVarMi(item.isim, item.kategori));
 
     if (gosterilecekler.length === 0) {
         alan.innerHTML = '<div class="loading">Daha fazla içerik getiriliyor...</div>';
@@ -1996,8 +2043,8 @@ function renderKesifIzgara() {
     const diziler = gosterilecekler.filter(d => d.kategori === 'Dizi').slice(0, 12);
     const filmler = gosterilecekler.filter(d => d.kategori === 'Film').slice(0, 12);
 
-    const eklenmemisTvTop = tvTopRatedListe.filter(item => !listedeVarMi(item.isim));
-    const eklenmemisFilmTop = filmTopRatedListe.filter(item => !listedeVarMi(item.isim));
+    const eklenmemisTvTop = tvTopRatedListe.filter(item => !listedeVarMi(item.isim, item.kategori));
+    const eklenmemisFilmTop = filmTopRatedListe.filter(item => !listedeVarMi(item.isim, item.kategori));
 
     const bolumler = [
         { baslik: 'En Yüksek Puanlı Diziler', alt: 'TMDB\'ye göre tüm zamanların en iyileri', itemler: eklenmemisTvTop },
@@ -2058,9 +2105,9 @@ async function aiKonuAra() {
     const btn = document.getElementById('aiAraBtn');
     const sonucDiv = document.getElementById('aiSonucBolumu');
     btn.disabled = true;
-    btn.textContent = '⏳ Aranıyor...';
+    document.getElementById('aiAraBtnLabel').textContent = 'Aranıyor...';
     sonucDiv.style.display = 'block';
-    sonucDiv.innerHTML = '<div class="loading">🤖 Gemini konuyu analiz ediyor...</div>';
+    sonucDiv.innerHTML = '<div class="loading">Gemini konuyu analiz ediyor...</div>';
 
     try {
         const cacheAnahtari = 'ai_konu_' + konu.trim().toLocaleLowerCase('tr');
@@ -2091,7 +2138,7 @@ async function aiKonuAra() {
         sonucDiv.innerHTML = '<div class="no-results">AI önerisi şu an kullanılamıyor, normal aramayı dene.</div>';
     } finally {
         btn.disabled = false;
-        btn.textContent = '🤖 AI ile Ara';
+        document.getElementById('aiAraBtnLabel').textContent = 'AI ile Ara';
     }
 }
 
@@ -2214,7 +2261,7 @@ async function discoverDetayAc(item) {
     } else {
     benzerBtn.style.display = 'none';
     }
-    const ekliMi = listedeVarMi(item.isim);
+    const ekliMi = listedeVarMi(item.isim, item.kategori);
     const ekleBtn = document.getElementById('ddEkleBtn');
     ekleBtn.textContent = ekliMi ? '✓ Zaten Koleksiyonunda' : '➕ Koleksiyonuma Ekle';
     ekleBtn.disabled = ekliMi;
@@ -2352,7 +2399,7 @@ function discoverDetayKapat() {
 
 function discoverDetayEkle() {
     if (!discoverDetayItem) return;
-    if (listedeVarMi(discoverDetayItem.isim)) { toast('Zaten listende ✓'); return; }
+    if (listedeVarMi(discoverDetayItem.isim, discoverDetayItem.kategori)) { toast('Zaten listende ✓'); return; }
     veriler.unshift({
         id: Date.now() + Math.random(),
         isim: discoverDetayItem.isim,
@@ -2670,7 +2717,7 @@ function jsonGeriYukle(event) {
                 // Ekle: aynı isimdekiler atlanır
                 let eklenen = 0;
                 gecerliVeriler.forEach(d => {
-                    if (!listedeVarMi(d.isim)) { veriler.push({ ...d, id: Date.now() + Math.random() }); eklenen++; }
+                    if (!listedeVarMi(d.isim, d.tur)) { veriler.push({ ...d, id: Date.now() + Math.random() }); eklenen++; }
                 });
                 toast(eklenen + ' yeni içerik eklendi ✓');
             } else {
