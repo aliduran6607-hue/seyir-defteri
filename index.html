@@ -71,7 +71,7 @@
     #aramaHeroBackdrop.visible { opacity: 1; }
     #aramaHeroBackdrop::after {
         content:''; position:absolute; inset:0;
-        background: linear-gradient(to bottom, rgba(2,6,23,0.45) 0%, rgba(2,6,23,0.6) 32%, rgba(9,8,22,0.97) 70%, #0a0a1a 92%);
+        background: linear-gradient(to bottom, rgba(2,6,23,0.85) 0%, rgba(2,6,23,0.35) 40%, rgba(9,8,22,0.9) 80%, #0a0a1a 100%);
     }
     .header { padding: 32px 20px 20px; max-width: 1200px; margin: 0 auto; }
     .header h1 {
@@ -694,7 +694,13 @@
     <div class="modal-overlay" id="profilModal" role="dialog" aria-modal="true">
         <div class="modal" style="max-width:420px;max-height:85vh;overflow-y:auto;">
             <div style="text-align:center;margin-bottom:20px;">
-                <img src="icon-192.png" alt="" style="width:64px;height:64px;border-radius:50%;border:2px solid var(--accent-500);box-shadow:0 4px 20px var(--accent-glow);">
+                <div style="position:relative;display:inline-block;">
+                    <img id="profilAvatarImg" src="icon-192.png" alt="" style="width:64px;height:64px;border-radius:50%;border:2px solid var(--accent-500);box-shadow:0 4px 20px var(--accent-glow);object-fit:cover;">
+                    <button onclick="document.getElementById('profilAvatarInput').click()" title="Profil fotoğrafını değiştir" style="position:absolute;bottom:-2px;right:-2px;width:24px;height:24px;border-radius:50%;background:var(--accent-gradient);border:2px solid #171233;display:flex;align-items:center;justify-content:center;cursor:pointer;color:white;">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                    </button>
+                    <input type="file" id="profilAvatarInput" accept="image/*" style="display:none;" onchange="profilAvatarSecildi(event)">
+                </div>
                 <div style="font-weight:800;font-size:var(--text-lg);margin-top:10px;" id="profilEmail"></div>
                 <div style="font-size:var(--text-xs);color:#a99bd6;margin-top:2px;" id="profilUyelikTarihi"></div>
                 <div style="position:relative;display:inline-block;">
@@ -884,16 +890,17 @@ const ICON_CHECK_CIRCLE = '<svg width="16" height="16" viewBox="0 0 24 24" fill=
 const ICON_CALENDAR_PLUS = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="12" y1="14" x2="12" y2="18"/><line x1="10" y1="16" x2="14" y2="16"/></svg>';
 const tmdbHazir = true; // Sunucu tarafında kurulup kurulmadığını her istek kendi içinde kontrol ediyor
 const TMDB_IMG = "https://image.tmdb.org/t/p/w300";
+const TMDB_BACKDROP = "https://image.tmdb.org/t/p/w1280";
 const TMDB_TUR_HARITASI = {
     28:'Aksiyon', 12:'Macera', 16:'Animasyon', 35:'Komedi', 80:'Suç', 99:'Belgesel',
     18:'Dram', 10751:'Aile', 14:'Fantastik', 36:'Tarih', 27:'Korku', 10402:'Müzikal',
     9648:'Gizem', 10749:'Romantik', 878:'Bilim Kurgu', 10770:'TV Filmi', 53:'Gerilim',
     10752:'Savaş', 37:'Western'
 };
-function imgKucult(url, genislik) {
+function imgKucult(url, genislik, kalite) {
     if (!url || url.startsWith('data:')) return url;
     const temizUrl = url.replace(/^https?:\/\//, '');
-    return 'https://images.weserv.nl/?url=' + encodeURIComponent(temizUrl) + '&w=' + genislik + '&output=webp&q=80';
+    return 'https://images.weserv.nl/?url=' + encodeURIComponent(temizUrl) + '&w=' + genislik + '&output=webp&q=' + (kalite || 80);
 }
 
 async function tmdbFetch(endpoint, params) {
@@ -996,7 +1003,38 @@ function rozetIpucuAcKapa() {
     const kutu = document.getElementById('rozetIpucu');
     kutu.style.display = kutu.style.display === 'none' ? 'block' : 'none';
 }
+function profilAvatarSecildi(event) {
+    const dosya = event.target.files[0];
+    if (!dosya) return;
+    if (!dosya.type.startsWith('image/')) { toast('Lütfen bir görsel dosyası seç'); return; }
+    const okuyucu = new FileReader();
+    okuyucu.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+            const boyut = 200; // küçük tutuyoruz ki cihazda az yer kaplasın
+            const canvas = document.createElement('canvas');
+            canvas.width = boyut; canvas.height = boyut;
+            const ctx = canvas.getContext('2d');
+            const olcek = Math.max(boyut / img.width, boyut / img.height);
+            const cizX = (boyut - img.width * olcek) / 2;
+            const cizY = (boyut - img.height * olcek) / 2;
+            ctx.drawImage(img, cizX, cizY, img.width * olcek, img.height * olcek);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+            try {
+                localStorage.setItem('kullaniciAvatarFoto', dataUrl);
+                document.getElementById('profilAvatarImg').src = dataUrl;
+                toast('Profil fotoğrafı güncellendi ✓');
+            } catch (e2) {
+                toast('Fotoğraf kaydedilemedi, dosya çok büyük olabilir');
+            }
+        };
+        img.src = e.target.result;
+    };
+    okuyucu.readAsDataURL(dosya);
+}
 function profilModalAc() {
+    const kayitliAvatar = localStorage.getItem('kullaniciAvatarFoto');
+    document.getElementById('profilAvatarImg').src = kayitliAvatar || 'icon-192.png';
     if (!currentUser) return;
     document.getElementById('profilEmail').textContent = currentUser.email || '';
     let uyelikMetni = '';
@@ -1699,7 +1737,7 @@ async function tvSayfasiGetir(sayfa) {
 
 async function filmSayfasiGetir(sayfa) {
     if (!tmdbHazir) return [];
-    const cacheAnahtari = 'kesif_film_sayfa_v3_' + sayfa;
+    const cacheAnahtari = 'kesif_film_sayfa_v4_' + sayfa;
     const onbellek = await apiCacheOku(cacheAnahtari);
     if (onbellek) return onbellek;
     try {
@@ -1711,6 +1749,7 @@ async function filmSayfasiGetir(sayfa) {
             .map(f => ({
                 isim: f.original_title || f.title,
                 poster: TMDB_IMG + f.poster_path,
+                backdropUrl: f.backdrop_path ? (TMDB_BACKDROP + f.backdrop_path) : null,
                 rating: f.vote_average ? Math.round(f.vote_average * 10) / 10 : null,
                 oySayisi: f.vote_count || 0,
                 imdb: null,
@@ -1831,6 +1870,33 @@ async function tvmazeIdBul(isim) {
     } catch (e) { return null; }
 }
 
+async function vizyondaFilmlerGetir() {
+    if (!tmdbHazir) return [];
+    const cacheAnahtari = 'vizyonda_filmler_v1';
+    const onbellek = await apiCacheOku(cacheAnahtari);
+    if (onbellek) return onbellek;
+    try {
+        const res = await fetch(TMDB_PROXY + '?' + new URLSearchParams({ endpoint: 'movie/now_playing', language: 'tr-TR', region: 'TR', page: 1 }).toString());
+        if (!res.ok) return [];
+        const veri = await res.json();
+        const sonuc = (veri.results || [])
+            .filter(f => f.poster_path)
+            .slice(0, 12)
+            .map(f => ({
+                isim: f.title || f.original_title,
+                poster: TMDB_IMG + f.poster_path,
+                backdropUrl: f.backdrop_path ? (TMDB_BACKDROP + f.backdrop_path) : null,
+                rating: f.vote_average ? Math.round(f.vote_average * 10) / 10 : null,
+                oySayisi: f.vote_count || 0,
+                imdb: null,
+                turler: (f.genre_ids || []).map(id => TMDB_TUR_HARITASI[id]).filter(Boolean),
+                kategori: 'Film', tmdbId: f.id
+            }));
+        await apiCacheYaz(cacheAnahtari, sonuc);
+        return sonuc;
+    } catch (e) { return []; }
+}
+
 async function buHaftaYeniGetir() {
     if (!tmdbHazir) return [];
     const bugun = new Date();
@@ -1888,7 +1954,8 @@ async function aramaKesifYukle() {
     const alan = document.getElementById('aramaKesifAlani');
     alan.innerHTML = '<div class="loading">Yükleniyor...</div>';
     try {
-        const [tvSayfa, filmSayfa, buHafta] = await Promise.all([tvSayfasiGetir(1), filmSayfasiGetir(1), buHaftaYeniGetir()]);
+        const [tvSayfa, filmSayfa, buHafta, vizyonda] = await Promise.all([tvSayfasiGetir(1), filmSayfasiGetir(1), buHaftaYeniGetir(), vizyondaFilmlerGetir()]);
+        window._vizyondaListe = vizyonda;
         // Gerçek "trend" sırasını korumak için karıştırmıyoruz — TMDB/TVMaze zaten popülerliğe göre sıralı veriyor.
         // Dizi ve filmi sırayla iç içe geçiriyoruz (ikisi de kendi popülerlik sırasını korur).
         aramaKesifHavuzu = [];
@@ -1936,7 +2003,7 @@ function renderAramaKesif() {
     window._aramaHeroVarMi = !!hero;
     let html = '';
     if (hero) {
-        backdrop.style.backgroundImage = `url('${imgKucult(hero.poster, 600)}')`;
+        backdrop.style.backgroundImage = `url('${imgKucult(hero.backdropUrl || hero.poster, 900, 88)}')`;
         backdrop.classList.add('visible');
         html += `<div class="arama-hero-content">
                 <div style="display:flex;align-items:center;justify-content:space-between;">
@@ -1960,8 +2027,11 @@ function renderAramaKesif() {
         ${['Tümü', ...ARAMA_KESIF_TURLERI].map(t => `<button class="filter-btn ${aramaKesifAktifTur === t ? 'active' : ''}" style="flex-shrink:0;" onclick="aramaTurSec('${t}')">${t}</button>`).join('')}
     </div>`;
 
+    const vizyondakiler = tureGoreSuz(eklenmemis(window._vizyondaListe || [])).slice(0, 12);
+
     const bolumler = [
         { baslik: 'Güncel Trendler', alt: 'Şu an popüler dizi ve filmler', itemler: trendler },
+        { baslik: 'Vizyondaki Filmler', alt: 'Şu an sinemalarda gösterimde', itemler: vizyondakiler },
         { baslik: 'Bu Hafta Yeni', alt: 'Platformlara yeni eklenenler', itemler: buHaftaYeni },
         { baslik: 'İzlediklerinize Göre', alt: enCokTur ? `${enCokTur} sevenler için seçkiler` : '', itemler: izlediklerineGore },
     ].filter(b => b.itemler.length > 0);
@@ -1989,13 +2059,13 @@ function renderAramaKesif() {
 }
 
 function aramaHeroHizliEkle(isim) {
-    const item = [...aramaKesifHavuzu, ...(window._buHaftaYeniListe || [])].find(d => d.isim === isim);
+    const item = [...aramaKesifHavuzu, ...(window._buHaftaYeniListe || []), ...(window._vizyondaListe || [])].find(d => d.isim === isim);
     if (!item) return;
     hizliEkle({ name: item.isim, poster: item.poster, kategori: item.kategori, tvId: item.tvId, tmdbId: item.tmdbId, turler: item.turler });
     renderAramaKesif();
 }
 function discoverDetayAcId(isim) {
-    const item = [...aramaKesifHavuzu, ...(window._buHaftaYeniListe || [])].find(d => d.isim === isim);
+    const item = [...aramaKesifHavuzu, ...(window._buHaftaYeniListe || []), ...(window._vizyondaListe || [])].find(d => d.isim === isim);
     if (item) discoverDetayAc(item);
 }
 
