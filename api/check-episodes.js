@@ -151,6 +151,11 @@ async function checkDizi(userId, item, fcmToken, simdi) {
         return { sent: true };
       } catch (sendErr) {
         console.error(`[${userId}] ${item.isim}: FCM hata -`, sendErr.code, sendErr.message);
+        // Geçersiz token'ı sil
+        if (sendErr.code === 'messaging/registration-token-not-registered') {
+          console.log(`[${userId}] Geçersiz token siliniyor`);
+          await db.collection('fcmTokens').doc(userId).delete();
+        }
         return { sent: false, error: true };
       }
     }
@@ -199,6 +204,10 @@ async function checkFilm(userId, item, fcmToken, simdi) {
           return { sent: true };
         } catch (sendErr) {
           console.error(`[${userId}] ${item.isim}: FCM hata -`, sendErr.code, sendErr.message);
+          if (sendErr.code === 'messaging/registration-token-not-registered') {
+            console.log(`[${userId}] Geçersiz token siliniyor`);
+            await db.collection('fcmTokens').doc(userId).delete();
+          }
           return { sent: false, error: true };
         }
       }
