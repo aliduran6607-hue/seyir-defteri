@@ -38,25 +38,35 @@ module.exports = async (req, res) => {
       console.log(`[${userId}] ${veriler.length} içerik kontrol ediliyor`);
       
       for (const item of veriler) {
-        if ((item.durum === 'İzleniyor' || item.durum === 'İzlendi') && item.tvId) {
-          console.log(`[${userId}] Dizi kontrol (tvId var): ${item.isim}`);
-          const sonuc = await checkDizi(userId, item, fcmToken, simdi);
-          if (sonuc.sent) gonderilen++;
-          if (sonuc.error) hatali++;
-        }
-        else if ((item.durum === 'İzleniyor' || item.durum === 'İzlendi') && item.tmdbId && item.tur === 'Dizi') {
-          // tvId yok ama tmdbId var → TMDB'den isim al, TVMaze'de ara
-          console.log(`[${userId}] Dizi kontrol (tmdbId var, tvId yok): ${item.isim}`);
-          const tvId = await tmdbIdToTvMazeId(item.tmdbId);
+        // Sadece İzleniyor veya İzlendi durumundaki diziler
+        if ((item.durum === 'İzleniyor' || item.durum === 'İzlendi') && item.tur === 'Dizi') {
+          console.log(`[${userId}] Dizi kontrol: ${item.isim}`);
+          
+          let tvId = item.tvId || null;
+          
+          // tvId yoksa, tmdbId varsa TMDB'den isim alıp TVMaze'de ara
+          if (!tvId && item.tmdbId) {
+            console.log(`[${userId}] ${item.isim}: tmdbId var, TVMaze ID aranıyor...`);
+            tvId = await tmdbIdToTvMazeId(item.tmdbId);
+          }
+          
+          // Hâlâ tvId yoksa, doğrudan isimle TVMaze'de ara
+          if (!tvId && item.isim) {
+            console.log(`[${userId}] ${item.isim}: İsimle TVMaze'de aranıyor...`);
+            tvId = await isimleTvMazeAra(item.isim);
+          }
+          
           if (tvId) {
-            const itemWithTvId = { ...item, tvId };
-            const sonuc = await checkDizi(userId, itemWithTvId, fcmToken, simdi);
+            console.log(`[${userId}] ${item.isim}: tvId=${tvId}, bölüm kontrolü yapılıyor`);
+            const sonuc = await checkDizi(userId, { ...item, tvId }, fcmToken, simdi);
             if (sonuc.sent) gonderilen++;
             if (sonuc.error) hatali++;
           } else {
-            console.log(`[${userId}] ${item.isim}: TVMaze ID bulunamadı`);
+            console.log(`[${userId}] ${item.isim}: TVMaze ID bulunamadı, atlanıyor`);
           }
         }
+        
+        // Film kontrolü (sadece İzlendi)
         if (item.durum === 'İzlendi' && item.tmdbId) {
           console.log(`[${userId}] Film kontrol: ${item.isim}`);
           const sonuc = await checkFilm(userId, item, fcmToken, simdi);
@@ -74,22 +84,28 @@ module.exports = async (req, res) => {
   }
 };
 
+async function isimleTvMazeAra(isim) {
+  try {
+    const res = await fetch(`https://api.tvmaze.com/singlesearch/shows?q=${encodeURIComponent(isim)}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.id || null;
+  } catch (e) {
+    console.log('İsimle TVMaze arama hatası:', e.message);
+    return null;
+  }
+}
+
 async function tmdbIdToTvMazeId(tmdbId) {
   try {
-    // TMDB'den dizi detayını al
     const res = await fetch(`https://api.themoviedb.org/3/tv/${tmdbId}?api_key=${TMDB_API_KEY}&language=tr-TR`);
     if (!res.ok) return null;
     const data = await res.json();
     const isim = data.name;
     if (!isim) return null;
-    
-    // TVMaze'de ara
-    const tvmRes = await fetch(`https://api.tvmaze.com/singlesearch/shows?q=${encodeURIComponent(isim)}`);
-    if (!tvmRes.ok) return null;
-    const tvmData = await tvmRes.json();
-    return tvmData.id || null;
+    return await isimleTvMazeAra(isim);
   } catch (e) {
-    console.log('TVMaze ID bulunamadı:', e.message);
+    console.log('TMDB→TVMaze dönüşüm hatası:', e.message);
     return null;
   }
 }
