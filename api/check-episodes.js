@@ -16,6 +16,8 @@ module.exports = async (req, res) => {
   try {
     const usersSnap = await db.collection('koleksiyonlar').get();
     const simdi = new Date();
+    let gonderilen = 0;
+    let hatali = 0;
     
     for (const userDoc of usersSnap.docs) {
       const userId = userDoc.id;
@@ -23,67 +25,137 @@ module.exports = async (req, res) => {
       const veriler = userData.veriler || [];
       
       const tokenDoc = await db.collection('fcmTokens').doc(userId).get();
-      if (!tokenDoc.exists) continue;
+      if (!tokenDoc.exists) {
+        console.log(`[${userId}] Token yok, atlanıyor`);
+        continue;
+      }
       const fcmToken = tokenDoc.data().token;
-      if (!fcmToken) continue;
+      if (!fcmToken) {
+        console.log(`[${userId}] Token boş, atlanıyor`);
+        continue;
+      }
+      
+      console.log(`[${userId}] ${veriler.length} içerik kontrol ediliyor`);
       
       for (const item of veriler) {
-        // Dizi: hem İzleniyor hem İzlendi yapılanlar
         if ((item.durum === 'İzleniyor' || item.durum === 'İzlendi') && item.tvId) {
-          await checkDizi(userId, item, fcmToken, simdi);
+          console.log(`[${userId}] Dizi kontrol (tvId var): ${item.isim}`);
+          const sonuc = await checkDizi(userId, item, fcmToken, simdi);
+          if (sonuc.sent) gonderilen++;
+          if (sonuc.error) hatali++;
         }
-        // Film: sadece İzlendi yapılanlar
+        else if ((item.durum === 'İzleniyor' || item.durum === 'İzlendi') && item.tmdbId && item.tur === 'Dizi') {
+          // tvId yok ama tmdbId var → TMDB'den isim al, TVMaze'de ara
+          console.log(`[${userId}] Dizi kontrol (tmdbId var, tvId yok): ${item.isim}`);
+          const tvId = await tmdbIdToTvMazeId(item.tmdbId);
+          if (tvId) {
+            const itemWithTvId = { ...item, tvId };
+            const sonuc = await checkDizi(userId, itemWithTvId, fcmToken, simdi);
+            if (sonuc.sent) gonderilen++;
+            if (sonuc.error) hatali++;
+          } else {
+            console.log(`[${userId}] ${item.isim}: TVMaze ID bulunamadı`);
+          }
+        }
         if (item.durum === 'İzlendi' && item.tmdbId) {
-          await checkFilm(userId, item, fcmToken, simdi);
+          console.log(`[${userId}] Film kontrol: ${item.isim}`);
+          const sonuc = await checkFilm(userId, item, fcmToken, simdi);
+          if (sonuc.sent) gonderilen++;
+          if (sonuc.error) hatali++;
         }
       }
     }
     
-    res.status(200).json({ success: true, checkedAt: simdi.toISOString() });
+    console.log(`Toplam: ${gonderilen} bildirim gönderildi, ${hatali} hata`);
+    res.status(200).json({ success: true, checkedAt: simdi.toISOString(), sent: gonderilen, errors: hatali });
   } catch (e) {
-    console.error(e);
+    console.error('[FATAL]', e);
     res.status(500).json({ error: e.message });
   }
 };
 
+async function tmdbIdToTvMazeId(tmdbId) {
+  try {
+    // TMDB'den dizi detayını al
+    const res = await fetch(`https://api.themoviedb.org/3/tv/${tmdbId}?api_key=${TMDB_API_KEY}&language=tr-TR`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const isim = data.name;
+    if (!isim) return null;
+    
+    // TVMaze'de ara
+    const tvmRes = await fetch(`https://api.tvmaze.com/singlesearch/shows?q=${encodeURIComponent(isim)}`);
+    if (!tvmRes.ok) return null;
+    const tvmData = await tvmRes.json();
+    return tvmData.id || null;
+  } catch (e) {
+    console.log('TVMaze ID bulunamadı:', e.message);
+    return null;
+  }
+}
+
 async function checkDizi(userId, item, fcmToken, simdi) {
   try {
     const res = await fetch(`https://api.tvmaze.com/shows/${item.tvId}?embed=nextepisode`);
-    if (!res.ok) return;
+    if (!res.ok) {
+      console.log(`[${userId}] TVMaze hata ${res.status} for ${item.isim}`);
+      return { sent: false };
+    }
     const data = await res.json();
     
     const nextEp = data._embedded?.nextepisode;
-    if (!nextEp || !nextEp.airstamp) return;
+    if (!nextEp || !nextEp.airstamp) {
+      console.log(`[${userId}] ${item.isim}: Yakın bölüm yok`);
+      return { sent: false };
+    }
     
     const airDate = new Date(nextEp.airstamp);
     const fark = (airDate - simdi) / (1000 * 60 * 60 * 24);
+    console.log(`[${userId}] ${item.isim}: Sonraki bölüm ${fark.toFixed(1)} gün sonra (${airDate.toISOString()})`);
     
     if (fark <= 7 && fark >= -1) {
       const bildirimId = `dizi_${item.tvId}_${nextEp.id}`;
       const gecmis = await db.collection('bildirimGecmisi').doc(userId).get();
-      if (gecmis.exists && gecmis.data()[bildirimId]) return;
+      if (gecmis.exists && gecmis.data()[bildirimId]) {
+        console.log(`[${userId}] ${item.isim}: Bildirim daha önce gönderilmiş`);
+        return { sent: false };
+      }
       
-      await sendNotification(fcmToken, {
-        title: `📺 ${item.isim}`,
-        body: `Yeni bölüm (${nextEp.season}x${nextEp.number}) ${airDate.toLocaleDateString('tr-TR')}'de!`
-      });
-      
-      await db.collection('bildirimGecmisi').doc(userId).set({ [bildirimId]: true }, { merge: true });
+      try {
+        await admin.messaging().send({
+          token: fcmToken,
+          notification: {
+            title: `📺 ${item.isim}`,
+            body: `Yeni bölüm (${nextEp.season}x${nextEp.number}) ${airDate.toLocaleDateString('tr-TR')}'de!`
+          }
+        });
+        console.log(`[${userId}] ${item.isim}: BİLDİRİM GÖNDERİLDİ`);
+        
+        await db.collection('bildirimGecmisi').doc(userId).set({ [bildirimId]: true }, { merge: true });
+        return { sent: true };
+      } catch (sendErr) {
+        console.error(`[${userId}] ${item.isim}: FCM hata -`, sendErr.code, sendErr.message);
+        return { sent: false, error: true };
+      }
     }
-  } catch (e) {}
+    return { sent: false };
+  } catch (e) {
+    console.error(`[${userId}] ${item.isim}: Genel hata -`, e.message);
+    return { sent: false, error: true };
+  }
 }
 
 async function checkFilm(userId, item, fcmToken, simdi) {
   try {
     const res = await fetch(`https://api.themoviedb.org/3/movie/${item.tmdbId}?api_key=${TMDB_API_KEY}`);
-    if (!res.ok) return;
+    if (!res.ok) return { sent: false };
     const data = await res.json();
     
     const collectionId = data.belongs_to_collection?.id;
-    if (!collectionId) return;
+    if (!collectionId) return { sent: false };
     
     const colRes = await fetch(`https://api.themoviedb.org/3/collection/${collectionId}?api_key=${TMDB_API_KEY}&language=tr-TR`);
-    if (!colRes.ok) return;
+    if (!colRes.ok) return { sent: false };
     const colData = await colRes.json();
     
     for (const film of colData.parts || []) {
@@ -99,23 +171,24 @@ async function checkFilm(userId, item, fcmToken, simdi) {
         const gecmis = await db.collection('bildirimGecmisi').doc(userId).get();
         if (gecmis.exists && gecmis.data()[bildirimId]) continue;
         
-        await sendNotification(fcmToken, {
-          title: `🎬 ${item.isim}`,
-          body: `Devam filmi "${film.title}" ${releaseDate.getFullYear()}'de geliyor!`
-        });
-        
-        await db.collection('bildirimGecmisi').doc(userId).set({ [bildirimId]: true }, { merge: true });
+        try {
+          await admin.messaging().send({
+            token: fcmToken,
+            notification: {
+              title: `🎬 ${item.isim}`,
+              body: `Devam filmi "${film.title}" ${releaseDate.getFullYear()}'de geliyor!`
+            }
+          });
+          await db.collection('bildirimGecmisi').doc(userId).set({ [bildirimId]: true }, { merge: true });
+          return { sent: true };
+        } catch (sendErr) {
+          console.error(`[${userId}] ${item.isim}: FCM hata -`, sendErr.code, sendErr.message);
+          return { sent: false, error: true };
+        }
       }
     }
-  } catch (e) {}
-}
-
-async function sendNotification(token, payload) {
-  await admin.messaging().send({
-    token,
-    notification: {
-      title: payload.title,
-      body: payload.body
-    }
-  });
+    return { sent: false };
+  } catch (e) {
+    return { sent: false, error: true };
+  }
 }
