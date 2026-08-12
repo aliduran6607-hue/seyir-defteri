@@ -14,6 +14,9 @@ module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   
   try {
+    // Önce 30 günden eski bildirimleri temizle
+    await eskiBildirimleriTemizle();
+    
     const usersSnap = await db.collection('koleksiyonlar').get();
     const simdi = new Date();
     let gonderilen = 0;
@@ -38,19 +41,16 @@ module.exports = async (req, res) => {
       console.log(`[${userId}] ${veriler.length} içerik kontrol ediliyor`);
       
       for (const item of veriler) {
-        // Sadece İzleniyor veya İzlendi durumundaki diziler
         if ((item.durum === 'İzleniyor' || item.durum === 'İzlendi') && item.tur === 'Dizi') {
           console.log(`[${userId}] Dizi kontrol: ${item.isim}`);
           
           let tvId = item.tvId || null;
           
-          // tvId yoksa, tmdbId varsa TMDB'den isim alıp TVMaze'de ara
           if (!tvId && item.tmdbId) {
             console.log(`[${userId}] ${item.isim}: tmdbId var, TVMaze ID aranıyor...`);
             tvId = await tmdbIdToTvMazeId(item.tmdbId);
           }
           
-          // Hâlâ tvId yoksa, doğrudan isimle TVMaze'de ara
           if (!tvId && item.isim) {
             console.log(`[${userId}] ${item.isim}: İsimle TVMaze'de aranıyor...`);
             tvId = await isimleTvMazeAra(item.isim);
@@ -58,7 +58,7 @@ module.exports = async (req, res) => {
           
           if (tvId) {
             console.log(`[${userId}] ${item.isim}: tvId=${tvId}, bölüm kontrolü yapılıyor`);
-            const sonuc = await checkDizi(userId, { ...item, tvId }, fcmToken, simdi);
+n            const sonuc = await checkDizi(userId, { ...item, tvId }, fcmToken, simdi);
             if (sonuc.sent) gonderilen++;
             if (sonuc.error) hatali++;
           } else {
@@ -66,7 +66,6 @@ module.exports = async (req, res) => {
           }
         }
         
-        // Film kontrolü (sadece İzlendi)
         if (item.durum === 'İzlendi' && item.tmdbId) {
           console.log(`[${userId}] Film kontrol: ${item.isim}`);
           const sonuc = await checkFilm(userId, item, fcmToken, simdi);
@@ -83,6 +82,29 @@ module.exports = async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 };
+
+async function eskiBildirimleriTemizle() {
+  try {
+    const otuzGunOnce = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const snapshot = await db.collection('bildirimler')
+      .where('tarih', '<', otuzGunOnce.toISOString())
+      .get();
+    
+    const batch = db.batch();
+    let silinen = 0;
+    snapshot.docs.forEach(doc => {
+      batch.delete(doc.ref);
+      silinen++;
+    });
+    
+    if (silinen > 0) {
+      await batch.commit();
+      console.log(`${silinen} eski bildirim silindi`);
+    }
+  } catch (e) {
+    console.log('Eski bildirim temizleme hatası:', e.message);
+  }
+}
 
 async function isimleTvMazeAra(isim) {
   try {
@@ -138,6 +160,7 @@ async function checkDizi(userId, item, fcmToken, simdi) {
       }
       
       try {
+        // FCM push bildirimi
         await admin.messaging().send({
           token: fcmToken,
           notification: {
@@ -145,13 +168,22 @@ async function checkDizi(userId, item, fcmToken, simdi) {
             body: `Yeni bölüm (${nextEp.season}x${nextEp.number}) ${airDate.toLocaleDateString('tr-TR')}'de!`
           }
         });
+        
+        // Uygulama içi bildirim geçmişi için Firestore'a kaydet
+        await db.collection('bildirimler').add({
+          userId: userId,
+          baslik: `📺 ${item.isim}`,
+          mesaj: `Yeni bölüm (${nextEp.season}x${nextEp.number}) ${airDate.toLocaleDateString('tr-TR')}'de!`,
+          okundu: false,
+          tarih: new Date().toISOString()
+        });
+        
         console.log(`[${userId}] ${item.isim}: BİLDİRİM GÖNDERİLDİ`);
         
         await db.collection('bildirimGecmisi').doc(userId).set({ [bildirimId]: true }, { merge: true });
         return { sent: true };
       } catch (sendErr) {
         console.error(`[${userId}] ${item.isim}: FCM hata -`, sendErr.code, sendErr.message);
-        // Geçersiz token'ı sil
         if (sendErr.code === 'messaging/registration-token-not-registered') {
           console.log(`[${userId}] Geçersiz token siliniyor`);
           await db.collection('fcmTokens').doc(userId).delete();
@@ -200,6 +232,15 @@ async function checkFilm(userId, item, fcmToken, simdi) {
               body: `Devam filmi "${film.title}" ${releaseDate.getFullYear()}'de geliyor!`
             }
           });
+          
+          await db.collection('bildirimler').add({
+            userId: userId,
+            baslik: `🎬 ${item.isim}`,
+            mesaj: `Devam filmi "${film.title}" ${releaseDate.getFullYear()}'de geliyor!`,
+            okundu: false,
+            tarih: new Date().toISOString()
+          });
+          
           await db.collection('bildirimGecmisi').doc(userId).set({ [bildirimId]: true }, { merge: true });
           return { sent: true };
         } catch (sendErr) {
